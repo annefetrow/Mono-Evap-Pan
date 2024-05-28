@@ -8,7 +8,7 @@ Installation and data generation done by University of Michigan in association w
 * Obtain the in-situ evaporation rate
 * Relate the evaporation rate with topographic conditions, such as air temp and RH
 * Convert the evaporation rate to overlake surface evaporation
-* Compare the result to ls2 model
+* Compare the result to ls2 model result
 
 ## Contact
 * Anne Fetrow (afetrow@umich.edu), NSF Postdoctoral Fellow, UM Earth and Environmental Sciences
