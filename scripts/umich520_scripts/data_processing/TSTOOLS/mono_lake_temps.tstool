@@ -1,0 +1,7 @@
+COOP:044881.ACIS.mint.Day~RCC-ACIS
+COOP:044881.ACIS.avgt.Day~RCC-ACIS
+COOP:044881.ACIS.maxt.Day~RCC-ACIS
+COOP:044881.ACIS.pcpn.Day~RCC-ACIS
+COOP:044881.ACIS.snow.Day~RCC-ACIS
+COOP:044881.ACIS.snwd.Day~RCC-ACIS
+WriteDelimitedFile(TSList=AllTS,OutputFile="mono_lake_temps_044881.csv",OutputStart="2023-09-07",OutputEnd="2023-11-02",HeaderComments="WriteDelimitedFile(TSList=AllTS,OutputFile=\\\"mono_lake_temps_044881.csv\\\",DateTimeColumn=\\\"DateTime\\\",ValueColumns=\\\"%L_Ave Temp\\\")")
