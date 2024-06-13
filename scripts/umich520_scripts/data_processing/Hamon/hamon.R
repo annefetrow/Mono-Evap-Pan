@@ -15,14 +15,15 @@ library(tidyr)
 
 ## Check the working directory (set the directory)
 
-getwd()
-setwd("G:/.shortcut-targets-by-id/1z6VpmA5-jrDJz7t8GhrIMasEXUCDJwxo/520 Mono Lake/data/air temps/")
-getwd()
+
+# Open in the RStudio Project to set working directory
+data_dir = file.path("data","umich520_data")
+
 
 
 ## First read in the temperature data
 
-temps = read.csv(file = "temps.csv", header = T)
+temps = read.csv(file = file.path(data_dir,"aggregated_CQ251_temps.csv"), header = T)
 head(temps)
 
 
@@ -146,8 +147,7 @@ evap$PET = k*ld*evap$hsat    # units of (in/day)
 
 ## Write output to .csv
 
-setwd("G:/.shortcut-targets-by-id/1z6VpmA5-jrDJz7t8GhrIMasEXUCDJwxo/520 Mono Lake/data/t-based_evap/")
-getwd()
+
 data =  subset(evap, select = -c(avetemp,eo,hsat,theta,phi))
-write.csv(data, file = "hamon_pet_estimate.csv",row.names = F)
+write.csv(data, file = file.path(data_dir,"t-based_evap","hamon_pet_estimate.csv"),row.names = F)
 

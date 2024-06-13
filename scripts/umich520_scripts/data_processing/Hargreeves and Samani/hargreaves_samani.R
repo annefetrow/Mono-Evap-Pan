@@ -24,14 +24,13 @@ Gsc = 118.11                # Solar constant (MJ/m^2/day)
 
 ## Check the working directory (set the directory)
 
-getwd()
-setwd("G:/.shortcut-targets-by-id/1z6VpmA5-jrDJz7t8GhrIMasEXUCDJwxo/520 Mono Lake/data/air temps/")
-getwd()
+# Open in the RStudio Project to set working directory
+data_dir = file.path("data","umich520_data")
 
 
 ## First read in the temperature data
 
-temps = read.csv(file = "temps.csv", header = T)
+temps = read.csv(file = file.path(data_dir,"aggregated_CQ251_temps.csv"), header = T)
 head(temps)
 
 ## Isolate the average temperatures
@@ -178,10 +177,8 @@ evap$PET = evap$PET*0.0393701
 head(evap)
 
 
-## Write output to .csv
+# Write output to .csv
 
-setwd("G:/.shortcut-targets-by-id/1z6VpmA5-jrDJz7t8GhrIMasEXUCDJwxo/520 Mono Lake/data/t-based_evap")
-getwd()
 data =  subset(evap, select = -c(mintemp,avetemp,maxtemp,j,dr,delta,ws,ra,ra.term))
-write.csv(data, file = "hargreaves_samani_pet_estimate.csv",row.names = F)
+write.csv(data, file = file.path(data_dir,"t-based_evap","hargreaves_samani_pet_estimate.csv"),row.names = F)
 

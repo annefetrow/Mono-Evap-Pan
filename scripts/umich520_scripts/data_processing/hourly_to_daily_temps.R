@@ -5,11 +5,10 @@
 library(dplyr)
 library(lubridate)
 
-getwd()
-setwd("G:/.shortcut-targets-by-id/1z6VpmA5-jrDJz7t8GhrIMasEXUCDJwxo/520 Mono Lake/data")
-getwd()
+# Open in the RStudio Project to set working directory
+data_dir = file.path("data","umich520_data")
 
-temps = read.csv(file = "CQ251_Sep_Nov_23_Meso.csv", header = T,skip=7)
+temps = read.csv(file = file.path(data_dir,"CQ251_Sep_Nov_23_Meso.csv"), header = T,skip=7)
 
 df = temps[,2:3]
 colnames(df) = c("Time","Temp")
@@ -32,7 +31,6 @@ df <- df %>%
 
 ## Write output to .csv
 
-setwd("G:/.shortcut-targets-by-id/1z6VpmA5-jrDJz7t8GhrIMasEXUCDJwxo/520 Mono Lake/data/")
-getwd()
+
 data =  df
-write.csv(data, file = "temps.csv",row.names = F)
+write.csv(data, file = file.path(data_dir,"aggregated_CQ251_temps.csv"),row.names = F)
