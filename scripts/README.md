@@ -11,6 +11,7 @@ Translated from `Eva_Factors_simplified.m` file that Yolanda processes all data.
 1. Create bar plot for evaporation rate and precipitation (precipitation from climate stations)
 2. Calculate average evaporation rate
 3. Create line plot for different topographical factors, data stored in  `Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx` in the `data` folder
+4. Create plot pdf stored in the `data\plot` folder
 
 ## Evaporation Calculation Method
 
