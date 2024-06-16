@@ -8,7 +8,7 @@ library(RColorBrewer) # For plotting
 
 # Define paths for input data and output plots
 data_directory <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/eva pan"
-plot_directory <- file.path(data_directory, "plot")
+plot_directory <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
 
 # Ensure the plot directory exists
 if (!dir.exists(plot_directory)) {
