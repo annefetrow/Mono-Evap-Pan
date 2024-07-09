@@ -3,8 +3,8 @@ clearvars; close all; clc;
 syms x
 
 %% Data Import
-[h_1,date_time_1] = data_import('ML_EP_20230907.csv');
-[h_2,date_time_2] = data_import('2023-11-2MLevap (2).csv');
+[h_1,date_time_1] = data_import('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\ML_EP_20230907.csv');
+[h_2,date_time_2] = data_import('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\2023-11-2MLevap (2).csv');
 
 % merge the two water level data and time data
 h = [h_1;h_2];
@@ -16,12 +16,12 @@ date_time = [date_time_1;date_time_2];
 eva_rate_avg = mean(eva_rate(eva_rate<0.75))%mm/hr
 
 %% Weather Factor
-weather_factor('Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx');
+weather_factor('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx',eva_date_time,eva_rate);
 
 %% Plot Data (Evaporation+Precipitation)
 figure;
-P_d = get_value('Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx','Precipitation,in');
-t = get_time('Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx','Precipitation,in');
+P_d = get_value('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx','Precipitation,in');
+t = get_time('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx','Precipitation,in');
 bar(eva_date_time,eva_rate,'b',EdgeColor='b');
 %bar(date_time,h,'b',EdgeColor='b');
 hold on;
@@ -71,7 +71,7 @@ function [eva_rate,eva_date_time] = eva_rate_cal(h,date_time)
 end
 
 %% Function: Weather Factor Plot
-function weather_factor(filename)
+function weather_factor(filename,eva_date_time,eva_rate)
     sheets = sheetnames(filename);
     num_plot = length(sheets);
     figure;
@@ -86,12 +86,17 @@ function weather_factor(filename)
         subplot(num_plot,1,i);
         if sheets(i) ~= "Precipitation,in"
             plot(t,value,'LineWidth',1);
+            legend(station);
+            % legend('USC00044881','KCALEEVI12','BTN (CDEC)','USS0019L13S','USR0000CBEN','USR0000CBR4','USR0000CCRE','NOHRSC');
+            ylabel(sheets(i));
         else
             bar(t,-1*value);
+            hold on;
+            bar(eva_date_time,eva_rate,'b',EdgeColor='b');
+            hold off;
+            legend([station,{'Evaporation'}]);
+            % legend('USC00044881','KCALEEVI12','BTN (CDEC)','USS0019L13S','USR0000CBEN','USR0000CBR4','USR0000CCRE','NOHRSC');
+            ylabel(sheets(i));
         end
-    
-        legend(station);
-        % legend('USC00044881','KCALEEVI12','BTN (CDEC)','USS0019L13S','USR0000CBEN','USR0000CBR4','USR0000CCRE','NOHRSC');
-        ylabel(sheets(i));
     end
 end
