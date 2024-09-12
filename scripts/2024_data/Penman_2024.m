@@ -11,6 +11,20 @@ Cp_w = 3.7794*10^(-3); % MJ/kg K
 Cp_a = 1.005*10^(-3); % MJ/kg K
 LAMBDA = 2.25; % MJ/kg
 
+%% Data Import
+folder_path = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024';
+start_date = datetime('2024-07-05');
+end_date = datetime('2024-08-22');
+
+% Call the function to read and crop the data
+combined_data = read_and_crop_data(folder_path, start_date, end_date);
+
+%% Solar Radiation
+solar_radiation_data = read_and_average_solar_radiation('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\2024_station_data\Radiation.xlsx');
+
+% Assuming combined_data and air_temp_data have been loaded
+[combined_data, solar_radiation_data] = match_table_dates(combined_data, solar_radiation_data);
+
 %% Import Data
 % Import weather factor data
 table_weather_factor = read_weather_factor('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx');
@@ -25,9 +39,16 @@ table_eva_rate.Date = datetime(table_eva_rate.Date);
 % Perform the inner join based on the datetime column
 combined_table = innerjoin(table_weather_factor, table_eva_rate, 'Keys', 'Date');
 
+%% Calculation (new)
+% Calculate delta
+delta_new = delta_calc(table2array(combined_data(:,2)) + 273.15); % Pa per K
+
 %% Calculation
 % Calculate delta
 delta = delta_calc(Ferenheit_to_Kelvin(table2array(combined_table(:,2)))); % Pa per K
+
+%% Specific Heat (new)
+gamma = salinity_sigma_calc; % kPa/K
 
 %% Specific Heat
 gamma = salinity_sigma_calc; % kPa/K
@@ -64,6 +85,121 @@ output_table = table(combined_table.Date, E_pan, E_theo, combined_table.daily_av
 
 % Write the table to a CSV file
 writetable(output_table, 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\eva_estimate_Penman.csv');
+
+
+%% Function: Read data and put all into a table
+function combined_data = read_and_crop_data(folder_path, start_date, end_date)
+    % This function reads all the files in the specified folder,
+    % crops them to the specified date range, and combines them into a single table.
+    % Inputs:
+    % - folder_path: the folder where the data files are located
+    % - start_date: the earliest date to include in the output (datetime)
+    % - end_date: the latest date to include in the output (datetime)
+    % Output:
+    % - combined_data: a table with the combined data, where the first column is 'Date'
+
+    % List all .csv files in the folder
+    file_list = dir(fullfile(folder_path, '*.csv'));
+    
+    % Initialize an empty table for the combined data
+    combined_data = table();
+    
+    for i = 1:length(file_list)
+        % Read each file
+        file_path = fullfile(folder_path, file_list(i).name);
+        data = readtable(file_path);
+
+        % Extract the variable name from the file (second column)
+        variable_name = data.Properties.VariableNames{2};
+
+        % Convert the date column to datetime
+        data.Date = datetime(data.Date, 'Format', 'yyyy-MM-dd');
+        
+        % Crop the data to the specified date range
+        cropped_data = data(data.Date >= start_date & data.Date <= end_date, :);
+
+        % Merge the cropped data into the combined table
+        if isempty(combined_data)
+            % If it's the first file, initialize the combined table with the date and the variable data
+            combined_data = cropped_data;
+        else
+            % Otherwise, add the variable data to the existing combined table
+            combined_data = outerjoin(combined_data, cropped_data, 'Keys', 'Date', ...
+                'MergeKeys', true, 'Type', 'left', 'LeftVariables', combined_data.Properties.VariableNames, ...
+                'RightVariables', {variable_name});
+        end
+    end
+
+    % Ensure that the combined data is sorted by date
+    combined_data = sortrows(combined_data, 'Date');
+end
+
+%% Function: Read solar radiation data
+function daily_solar_radiation_data = read_and_average_solar_radiation(file_path)
+    % This function reads the solar radiation data from the specified Excel file.
+    % It calculates the daily average of the solar radiation.
+    % Inputs:
+    % - file_path: full path to the "Solar Radiation.xlsx" file
+    % Output:
+    % - daily_solar_radiation_data: a table with 'Date' and 'Average_Solar_Radiation_W_m2' columns
+
+    % Read the entire file
+    data = readtable(file_path);
+    
+    % Extract the first column as DateTime (yyyy-MM-dd HH format)
+    date_time = data{:, 1};  % Assuming the first column contains date and time
+    
+    % Extract the last column as solar radiation
+    solar_radiation = data{:, end};  % Assuming the last column is the solar radiation in W/m²
+
+    % Convert the date-time column to datetime format if necessary
+    date_time = datetime(date_time, 'InputFormat', 'yyyy-MM-dd HH');
+    
+    % Convert to just date for grouping
+    dates = dateshift(date_time, 'start', 'day');
+    
+    % Calculate daily averages
+    [unique_dates, ~, idx] = unique(dates);
+    daily_avg_solar_radiation = accumarray(idx, solar_radiation, [], @mean);
+
+    % Create a table with the daily averages
+    daily_solar_radiation_data = table(unique_dates, daily_avg_solar_radiation, ...
+        'VariableNames', {'Date', 'Average_Solar_Radiation_W_m2'});
+end
+
+%% Function: Crop tables to match date ranges
+function [cropped_table1, cropped_table2] = match_table_dates(table1, table2)
+    % This function crops two tables so that their date ranges match.
+    % Inputs:
+    % - table1: first table with the first column as Date
+    % - table2: second table with the first column as Date
+    % Outputs:
+    % - cropped_table1: cropped table1 to match the date range of table2
+    % - cropped_table2: cropped table2 to match the date range of table1
+
+    % Extract the date columns from both tables
+    dates_table1 = table1.Date;
+    dates_table2 = table2.Date;
+
+    % Find the common date range (intersection of dates)
+    common_start_date = max(min(dates_table1), min(dates_table2));
+    common_end_date = min(max(dates_table1), max(dates_table2));
+
+    % Crop table1 to the common date range
+    cropped_table1 = table1(dates_table1 >= common_start_date & dates_table1 <= common_end_date, :);
+
+    % Crop table2 to the common date range
+    cropped_table2 = table2(dates_table2 >= common_start_date & dates_table2 <= common_end_date, :);
+
+    % Display a message if either table was cropped
+    if height(table1) ~= height(cropped_table1)
+        disp('Table 1 has been cropped to match Table 2.');
+    end
+    if height(table2) ~= height(cropped_table2)
+        disp('Table 2 has been cropped to match Table 1.');
+    end
+end
+
 
 %% Function
 function E = penman_calc(delta, gamma, Rn, Ea) % delta in kPa/C, gamma in kPa/C, Ea in MJ/m^2, Rn in MJ/m2d
