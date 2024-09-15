@@ -1,6 +1,7 @@
 %% Initialization
 clearvars; close all; clc;
 global RHO_W RHO_L SIGMA S P Cp_w Cp_a LAMBDA
+set(groot, 'defaultLineLineWidth', 1.5);  % Sets the default line width to 1.5
 
 RHO_W = 1000;
 RHO_L = 1060; % kg/m3
@@ -22,42 +23,27 @@ combined_data = read_and_crop_data(folder_path, start_date, end_date);
 %% Solar Radiation
 solar_radiation_data = read_and_average_solar_radiation('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\2024_station_data\Radiation.xlsx');
 
-% Assuming combined_data and air_temp_data have been loaded
+% Assuming combined_data and solar radiation have been loaded
 [combined_data, solar_radiation_data] = match_table_dates(combined_data, solar_radiation_data);
 
-%% Import Data
-% Import weather factor data
-table_weather_factor = read_weather_factor('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\eva pan\Mono Lake_Evaporation_Factors_Daily_Yolanda.xlsx');
+%% Wind Speed
+wind_speed_data = read_and_average_wind_speed('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\2024_station_data\Wind Speed m_s.xlsx');
 
-% Import evaporation data
-table_eva_rate = read_eva_rate('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\daily_average_evaporation_rates.csv'); % mm/hr
-
-% Ensure that the datetime columns are properly formatted
-table_weather_factor.Date = datetime(table_weather_factor.Date);
-table_eva_rate.Date = datetime(table_eva_rate.Date);
-
-% Perform the inner join based on the datetime column
-combined_table = innerjoin(table_weather_factor, table_eva_rate, 'Keys', 'Date');
-
-%% Calculation (new)
-% Calculate delta
-delta_new = delta_calc(table2array(combined_data(:,2)) + 273.15); % Pa per K
+% Assuming combined_data and solar radiation have been loaded
+[combined_data, wind_speed_data] = match_table_dates(combined_data, wind_speed_data);
 
 %% Calculation
 % Calculate delta
-delta = delta_calc(Ferenheit_to_Kelvin(table2array(combined_table(:,2)))); % Pa per K
-
-%% Specific Heat (new)
-gamma = salinity_sigma_calc; % kPa/K
+delta = delta_calc(table2array(combined_data(:,2)) + 273.15); % Pa per K
 
 %% Specific Heat
 gamma = salinity_sigma_calc; % kPa/K
 
-%% Radiation
-Rn = Rn_calc(Ferenheit_to_Kelvin(table2array(combined_table(:,2))), 1000); % W/m2
+%% Radation
+Rn = Rn_calc(table2array(combined_data(:,2)) + 273.15, 1000); % W/m2
 
 %% Check Ea with theoretical Ea
-Ea_theo = 6.43 .* (0.18 + 0.55 .* 0.44704 .* combined_table.("Windspeed,mph")) .* (saturated_pressure(combined_table.("Temperature,F")) - 10^(-3) .* vapor_pressure(Ferenheit_to_Kelvin(combined_table.("Temperature,F"))));
+Ea_theo = 6.43 .* (0.18 + 0.55 .* wind_speed_data.Average_Wind_Speed_m_s) .* (saturated_pressure(combined_data.Daily_Avg_AirTempC) - vapor_pressure(combined_data.Daily_Avg_AirTempC + 273.15));
 % figure;
 % plot(combined_table.Date, Ea_theo);
 % hold on;
@@ -65,22 +51,22 @@ Ea_theo = 6.43 .* (0.18 + 0.55 .* 0.44704 .* combined_table.("Windspeed,mph")) .
 % legend('Theoretical','Experimental');
 
 %% Calculate En
-Ea = table2array(combined_table(:,7)).*RHO_W.*2.45.*24./1000; % MJ/m2d
-E_pan = penman_calc(delta./1000, gamma, Rn.*0.0864, Ea) .* 1000; % mm/d
+Ea_pan = combined_data.Daily_Avg_EvaporationRateMm_hr.*RHO_W.*2.45.*24./1000; % MJ/m2d
+E_pan = penman_calc(delta./1000, gamma, Rn.*0.0864, Ea_pan) .* 1000; % mm/d
 E_theo = penman_calc(delta./1000, gamma, Rn.*0.0864, Ea_theo) .* 1000; % mm/d
 
-plot(combined_table.Date,E_pan);
+plot(combined_data.Date,E_pan);
 ylabel('mm/d');
 xlabel('Date');
 hold on;
-plot(combined_table.Date,E_theo);
-plot(combined_table.Date,combined_table.daily_average_evaporation_rates.*24);
+plot(combined_data.Date,E_theo);
+plot(combined_data.Date,combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
 
 legend('Lake, from Pan Eva','Lake, from Theoretical Eva','Pan Eva');
 
 %% Save the Results
 % Create a table with the calculated data
-output_table = table(combined_table.Date, E_pan, E_theo, combined_table.daily_average_evaporation_rates.*24, ...
+output_table = table(combined_data.Date, E_pan, E_theo, combined_data.Daily_Avg_EvaporationRateMm_hr.*24, ...
     'VariableNames', {'Date', 'Lake_From_Pan_Eva_mm_d', 'Lake_From_Theoretical_Eva_mm_d', 'Pan_Eva_mm_d'});
 
 % Write the table to a CSV file
@@ -167,6 +153,44 @@ function daily_solar_radiation_data = read_and_average_solar_radiation(file_path
         'VariableNames', {'Date', 'Average_Solar_Radiation_W_m2'});
 end
 
+%% Function: Read Windspeed Data
+function daily_wind_speed_data = read_and_average_wind_speed(file_path)
+    % This function reads the wind speed data from the specified Excel file.
+    % It calculates the daily average of the wind speed, ignoring NaN values.
+    % Inputs:
+    % - file_path: full path to the "Wind Speed.xlsx" file
+    % Output:
+    % - daily_wind_speed_data: a table with 'Date' and 'Average_Wind_Speed_m_s' columns
+
+    % Read the entire file
+    data = readtable(file_path);
+    
+    % Extract the first column as DateTime (yyyy-MM-dd HH format)
+    date_time = data{:, 1};  % Assuming the first column contains date and time
+    
+    % Extract the last column as wind speed
+    wind_speed = data{:, end};  % Assuming the last column is the wind speed in m/s
+
+    % Convert the date-time column to datetime format if necessary
+    date_time = datetime(date_time, 'InputFormat', 'yyyy-MM-dd HH');
+    
+    % Convert to just date for grouping
+    dates = dateshift(date_time, 'start', 'day');
+    
+    % Remove NaN values from wind speed data
+    valid_data_idx = ~isnan(wind_speed);
+    dates = dates(valid_data_idx);
+    wind_speed = wind_speed(valid_data_idx);
+    
+    % Calculate daily averages
+    [unique_dates, ~, idx] = unique(dates);
+    daily_avg_wind_speed = accumarray(idx, wind_speed, [], @mean);
+
+    % Create a table with the daily averages
+    daily_wind_speed_data = table(unique_dates, daily_avg_wind_speed, ...
+        'VariableNames', {'Date', 'Average_Wind_Speed_m_s'});
+end
+
 %% Function: Crop tables to match date ranges
 function [cropped_table1, cropped_table2] = match_table_dates(table1, table2)
     % This function crops two tables so that their date ranges match.
@@ -200,7 +224,6 @@ function [cropped_table1, cropped_table2] = match_table_dates(table1, table2)
     end
 end
 
-
 %% Function
 function E = penman_calc(delta, gamma, Rn, Ea) % delta in kPa/C, gamma in kPa/C, Ea in MJ/m^2, Rn in MJ/m2d
     
@@ -225,8 +248,7 @@ function Rn = Rn_calc(Ta, RA)
     a = 0.4; % assumption, vary with latitude
     b = 0.274; % assumption, vary with latitude
     n_N = 0.8; % assumption
-    %ed = vapor_pressure_height(vapor_pressure(Ta), Ta, 4).*10^(-3); % Pa, assume measured at 4m height
-    ed = vapor_pressure_height(vapor_pressure(Ta), Ta, 4).*10^(-3); % Pa, assume measured at 4m height
+    ed = vapor_pressure_height(vapor_pressure(Ta), Ta, 4); % kPa, assume measured at 4m height
 
 
     % Calculate R1
@@ -240,20 +262,19 @@ function Rn = Rn_calc(Ta, RA)
 
 end
 
-function p_s = saturated_pressure(T) %kPa
-    T_C = 5./9.*(T-32);
-    p_s = 0.611 .* exp(17.27.*T_C ./ (T_C + 237.3));
+function p_s = saturated_pressure(T) % p_s in kPa, T in C
+    p_s = 0.611 .* exp(17.27.*T ./ (T + 237.3));
 end
 
-function pw = vapor_pressure(T) % pw in Pa, T in K
+function pw = vapor_pressure(T) % pw in kPa, T in K
     A = 5.04221;
     B = 1838.675;
     C = -31.737;
     
     pw = 10.^((A - B./(C+T))); % bar
 
-    % Convert unit from bar to Pa
-    pw = 10^5 .* pw;
+    % Convert unit from bar to kPa
+    pw = 10^2 .* pw;
 end
 
 function ph = vapor_pressure_height(p0, T, height)
