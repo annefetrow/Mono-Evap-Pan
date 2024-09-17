@@ -2,8 +2,9 @@
 clearvars; close all; clc;
 set(groot, 'defaultLineLineWidth', 1.5);  % Sets the default line width to 1.5
 
-%% Constant
-h = 4; % assume the climate station is measured at 4 m height
+%% Constants
+h = 4; % Height of the climate station in meters
+salinities = [0, 50, 100]; % Define the salinity levels to investigate
 
 %% Data Import
 folder_path = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024';
@@ -13,96 +14,90 @@ end_date = datetime('2024-08-22');
 % Call the function to read and crop the data
 combined_data = read_and_crop_data(folder_path, start_date, end_date);
 
-% data for air temperature
-file_path = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\\data\2024_station_data\Air Temperature C.xlsx';
+% Air temperature data
+file_path = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\2024_station_data\Air Temperature C.xlsx';
 air_temp_data = read_and_average_air_temperature(file_path);
 
-%% Align Matrix and Add Air Temperature as a New Column
-% Assuming combined_data and air_temp_data have been loaded
+% Align the data tables
 [combined_data, air_temp_data] = match_table_sizes(combined_data, air_temp_data);
 
 % Add the Lake Air Temperature from air_temp_data to combined_data
 combined_data.Lake_Air_Temperature_C = air_temp_data.Lake_Air_Temperature_C;
 
-%% Dynamic Salinity Input
-% Create a column for salinity in your table based on your data or rules.
-combined_data.Salinity_g_per_kg = zeros(height(combined_data), 1); % Assuming salinity is initially zero
-
-% Define a rule to set different salinity values based on date (e.g., arbitrary example)
-for i = 1:height(combined_data)
-    current_date = combined_data.Date(i);
-    if current_date < datetime('2024-07-20')
-        combined_data.Salinity_g_per_kg(i) = 75; % Salinity for earlier dates
-    elseif current_date < datetime('2024-08-15')
-        combined_data.Salinity_g_per_kg(i) = 81; % Salinity for middle dates
-    else
-        combined_data.Salinity_g_per_kg(i) = 85; % Salinity for later dates
-    end
-end
-
 %% Monthly Lake Temperature Data
-% Create a table with month names and average temperatures from Anne's field measurement and online database
 MonthNames = {'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'}';
 AverageTemperatures_C = (([30, 32, 35, 45, 55, 60, 69.6, 71.8, 62.275, 52.75, 49.8, 35] - 32).*5./9)';
 
-% Create a table:
 monthly_avg_temp_table = table(MonthNames, AverageTemperatures_C);
 
-% Preallocate the lake temperature column in combined_data
+% Assign average lake temperature based on month
 combined_data.Lake_Temperature_C = zeros(height(combined_data), 1);
-
-% Loop through combined_data and assign lake temperature based on the month
 for i = 1:height(combined_data)
-    % Get the month index for the current date in combined_data
     current_month = month(combined_data.Date(i));
-    
-    % Assign the corresponding average lake temperature based on the month
     combined_data.Lake_Temperature_C(i) = monthly_avg_temp_table.AverageTemperatures_C(current_month);
 end
 
-% Display the first few rows of the updated combined_data
-disp(combined_data(1:10, {'Date', 'Lake_Temperature_C'}));
 
-%% Calculate Saturation Vapor Pressure
-e_p_kPa = saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC);
-e_p_0_kPa = water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC,combined_data.Daily_Avg_RH_./100);
-e_p_4_kPa = vapor_pressure_height(e_p_0_kPa, combined_data.Daily_Avg_AirTempC+273.15, h);
+% Define line styles for different salinities
+line_styles = {'-', '--', '-.'}; % Solid for 0, dashed for 50, dot-dash for 100
+colors = lines(length(salinities)); % Get distinct colors for the plots
 
-e_l_kPa = salinity_vapor_pressure(saturated_water_vapor_pressure(combined_data.Lake_Temperature_C), combined_data.Salinity_g_per_kg, (combined_data.Lake_Temperature_C));
-e_l_0_kPa = water_surface_vapor_pressure(combined_data.Lake_Air_Temperature_C,combined_data.Daily_Avg_RH_./100);
-e_l_4_kPa = vapor_pressure_height(e_l_0_kPa, combined_data.Lake_Air_Temperature_C+273.15, h);
+% Create separate figures for each parameter
+figure(1); hold on;
+figure(2); hold on;
+figure(3); hold on;
 
+for j = 1:length(salinities)
+    % Set current salinity
+    current_salinity = salinities(j);
+    combined_data.Salinity_g_per_kg = current_salinity * ones(height(combined_data), 1);
 
-%% Calculate Lake Evaporation
-E_lake = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa)) .* combined_data.Daily_Avg_EvaporationRateMm_hr;
-coefficient = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa));
+    %% Calculate Saturation Vapor Pressure
+    e_p_kPa = saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC);
+    e_p_0_kPa = water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC, combined_data.Daily_Avg_RH_./100);
+    e_p_4_kPa = vapor_pressure_height(e_p_0_kPa, combined_data.Daily_Avg_AirTempC + 273.15, h);
+    
+    e_l_kPa = salinity_vapor_pressure(saturated_water_vapor_pressure(combined_data.Lake_Temperature_C), combined_data.Salinity_g_per_kg, combined_data.Lake_Temperature_C);
+    e_l_0_kPa = water_surface_vapor_pressure(combined_data.Lake_Air_Temperature_C, combined_data.Daily_Avg_RH_./100);
+    e_l_4_kPa = vapor_pressure_height(e_l_0_kPa, combined_data.Lake_Air_Temperature_C + 273.15, h);
 
-%% Plot
-plot(combined_data.Date,coefficient);
-ylabel('Conversion Coefficient');
-xlabel('Date');
+    %% Calculate Lake Evaporation and Coefficient
+    E_lake = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa)) .* combined_data.Daily_Avg_EvaporationRateMm_hr;
+    coefficient = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa));
 
-figure;
-plot(combined_data.Date,e_p_4_kPa);
-hold on;
-plot(combined_data.Date,e_p_kPa);
-plot(combined_data.Date,e_l_kPa);
-plot(combined_data.Date,e_l_4_kPa);
+    %% Plot Conversion Coefficient (Figure 1)
+    figure(1);
+    plot(combined_data.Date, coefficient, 'LineStyle', line_styles{j}, 'Color', colors(j, :), 'DisplayName', sprintf('Salinity = %d g/kg', current_salinity));
+    ylabel('Conversion Coefficient');
+    xlabel('Date');
+    % Only show the legend once
+    if j == length(salinities)
+        legend show;
+    end
+
+    %% Plot Vapor Pressures (Figure 2)
+    figure(2);
+    plot(combined_data.Date, e_p_4_kPa, 'LineStyle', line_styles{j}, 'Color', colors(j, :), 'DisplayName', sprintf('Salinity = %d g/kg', current_salinity));
+    ylabel('Vapor Pressure (kPa)');
+    xlabel('Date');
+    % Only show the legend once
+    if j == length(salinities)
+        legend('e_{p,4}', 'e_p', 'e_l', 'e_{l,4}');
+    end
+
+    %% Plot Temperatures (Figure 3)
+    figure(3);
+    plot(combined_data.Date, combined_data.Lake_Temperature_C, 'LineStyle', line_styles{j}, 'Color', colors(j, :), 'DisplayName', sprintf('Salinity = %d g/kg', current_salinity));
+    ylabel('Temperature (C)');
+    xlabel('Date');
+    % Only show the legend once
+    if j == length(salinities)
+        legend('Lake Water', 'Pan Water', 'Pan Air', 'Lake Air');
+    end
+end
+
 hold off;
-legend('e_{p,4}','e_p','e_l','e_{l,4}');
-ylabel('Vapor Pressure (kPa)');
-xlabel('Date');
 
-figure;
-plot(combined_data.Date,combined_data.Lake_Temperature_C);
-hold on;
-plot(combined_data.Date,combined_data.Daily_Avg_WaterTempC);
-plot(combined_data.Date,combined_data.Daily_Avg_AirTempC);
-plot(combined_data.Date,combined_data.Lake_Air_Temperature_C);
-hold off;
-xlabel('Date');
-ylabel('Temperature (C)');
-legend('Lake Water','Pan Water','Pan Air','Lake Air');
 
 %% Function: Read data and put all into a table
 function combined_data = read_and_crop_data(folder_path, start_date, end_date)
