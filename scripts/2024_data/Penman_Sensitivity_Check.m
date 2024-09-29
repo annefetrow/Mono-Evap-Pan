@@ -6,10 +6,10 @@ set(groot, 'defaultLineLineWidth', 1.5);  % Sets the default line width to 1.5
 RHO_W = 1000;
 RHO_L = 1060; % kg/m3
 SIGMA = 5.67 * 10^(-8); % 1/(s m2 K4)
-P = 101325; % Pa
+P = 0.1 .* 10^6; % Pa
 Cp_w = 3.7794*10^(-3); % MJ/kg K
 Cp_a = 1.005*10^(-3); % MJ/kg K
-LAMBDA = 2.45; % MJ/kg
+LAMBDA = 2.25; % MJ/kg
 
 %% Data Import
 folder_path = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024';
@@ -57,9 +57,9 @@ for i = 1:height(combined_data)
     if current_date < datetime('2024-07-20')
         combined_data.Salinity_g_per_kg(i) = 75; % Salinity for earlier dates
     elseif current_date < datetime('2024-08-15')
-        combined_data.Salinity_g_per_kg(i) = 81; % Salinity for middle dates
+        combined_data.Salinity_g_per_kg(i) = 75; % Salinity for middle dates
     else
-        combined_data.Salinity_g_per_kg(i) = 85; % Salinity for later dates
+        combined_data.Salinity_g_per_kg(i) = 75; % Salinity for later dates
     end
 end
 
@@ -70,46 +70,75 @@ delta = delta_calc(combined_data.Salinity_g_per_kg, combined_data.Lake_Air_Tempe
 %% Specific Heat
 gamma = salinity_sigma_calc; % kPa/K
 
+%% Guess Ea and E
+Ea = 20; % MJ/m2d
+E = 10/1000; %m/d
+
 %% Radation
-Rn = Rn_calc(combined_data.Lake_Air_Temperature_C, combined_data.Daily_Avg_RH_, combined_data.Solar_Radiation_W_m2); % W/m2
 
-%% Check Ea with theoretical Ea
-Ea_theo = 6.43 .* (0.18 + 0.55 .* wind_speed_data.Average_Wind_Speed_m_s) .* (saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC) - water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC,combined_data.Daily_Avg_RH_./100));
+% Define Constants
+r = 0.05;
+a = 0.4; % assumption, vary with latitude
+b = 0.274; % assumption, vary with latitude
+n_N = 0.8; % assumption
+ed_0_kPa = water_surface_vapor_pressure(combined_data.Lake_Air_Temperature_C,combined_data.Daily_Avg_RH_./100);
+ed_4_kPa = vapor_pressure_height(ed_0_kPa, combined_data.Lake_Air_Temperature_C+273.15, 4); % kPa, assume measured at 4m height
 
-%% Calculate En
-Ea_pan = combined_data.Daily_Avg_EvaporationRateMm_hr.*RHO_W.*2.45.*24./1000; % MJ/m2d
-E_pan = penman_calc(delta, gamma, Rn.*0.0864, Ea_pan) .* 1000; % mm/d
-E_theo = penman_calc(delta, gamma, Rn.*0.0864, Ea_theo) .* 1000; % mm/d
+% Calculate R1
+% RA = 1000;
+% R1 = RA .* (a + b .* n_N);
+R1 = combined_data.Solar_Radiation_W_m2;
 
-plot(combined_data.Date,E_pan);
-ylabel('mm/d');
-xlabel('Date');
+% Calculate R2
+RB = SIGMA .* (combined_data.Lake_Air_Temperature_C+273.15).^4 .*(0.56 - 0.09 .* sqrt(ed_4_kPa)) .* (0.1 + 0.9 .* n_N);
+
+% Calculate Rn
+Rn_theo = R1 .* (1-r) - RB; % W/m2
+
+%% Back Calculate Radiation
+Rn_back = 1 ./ delta .* (LAMBDA.*E.*(delta+gamma).*RHO_L - gamma.*Ea).*11.57; % W/m2
+
+%% Plot
+plot(combined_data.Date,Rn_theo);
 hold on;
-plot(combined_data.Date,E_theo);
-plot(combined_data.Date,combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
+plot(combined_data.Date,Rn_back);
+plot(combined_data.Date,combined_data.Solar_Radiation_W_m2);
+hold off;
+legend('Theoretical','Back','CQ_251');
+ylabel('Radiation W/m^2');
 
-legend('Lake, from Pan Eva','Lake, from Theoretical Eva','Pan Eva');
-
-%% Calculate Conversion Coefficient
-C_pan = E_pan ./ (combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
-C_theo = E_theo ./ (combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
-
-figure;
-plot(combined_data.Date,C_pan);
-ylabel('Conversion Coefficient');
-xlabel('Date');
-hold on;
-plot(combined_data.Date,C_theo);
-
-legend('From Pan Eva','From Theoretical Eva');
-
-%% Save the Results
-% Create a table with the calculated data
-output_table = table(combined_data.Date, E_pan, E_theo, combined_data.Daily_Avg_EvaporationRateMm_hr.*24, ...
-    'VariableNames', {'Date', 'Lake_From_Pan_Eva_mm_d', 'Lake_From_Theoretical_Eva_mm_d', 'Pan_Eva_mm_d'});
-
-% Write the table to a CSV file
-writetable(output_table, 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\eva_estimate_Penman.csv');
+% %% Radation
+% Rn = Rn_calc(combined_data.Lake_Air_Temperature_C, combined_data.Daily_Avg_RH_, 1000); % W/m2
+% 
+% %% Check Ea with theoretical Ea
+% Ea_theo = 6.43 .* (0.18 + 0.55 .* wind_speed_data.Average_Wind_Speed_m_s) .* (saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC) - water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC,combined_data.Daily_Avg_RH_./100));
+% 
+% %% Calculate En
+% Ea_pan = combined_data.Daily_Avg_EvaporationRateMm_hr.*RHO_W.*2.45.*24./1000; % MJ/m2d
+% E_pan = penman_calc(delta, gamma, Rn.*0.0864, Ea_pan) .* 1000; % mm/d
+% E_theo = penman_calc(delta, gamma, Rn.*0.0864, Ea_theo) .* 1000; % mm/d
+% 
+% plot(combined_data.Date,E_pan);
+% ylabel('mm/d');
+% xlabel('Date');
+% hold on;
+% plot(combined_data.Date,E_theo);
+% plot(combined_data.Date,combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
+% 
+% legend('Lake, from Pan Eva','Lake, from Theoretical Eva','Pan Eva');
+% 
+% %% Calculate Conversion Coefficient
+% C_pan = E_pan ./ (combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
+% C_theo = E_theo ./ (combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
+% 
+% figure;
+% plot(combined_data.Date,C_pan);
+% ylabel('Conversion Coefficient');
+% xlabel('Date');
+% hold on;
+% plot(combined_data.Date,C_theo);
+% 
+% legend('From Pan Eva','From Theoretical Eva');
 
 %% Function: Read data and put all into a table
 function combined_data = read_and_crop_data(folder_path, start_date, end_date)
@@ -314,7 +343,7 @@ function E = penman_calc(delta, gamma, Rn, Ea) % delta in kPa/C, gamma in kPa/C,
 
 end
 
-function Rn = Rn_calc(Ta, RH, R1)
+function Rn = Rn_calc(Ta, RH, RA)
     
     % Global Variables
     global SIGMA
@@ -327,8 +356,8 @@ function Rn = Rn_calc(Ta, RH, R1)
     ed_0_kPa = water_surface_vapor_pressure(Ta,RH./100);
     ed_4_kPa = vapor_pressure_height(ed_0_kPa, Ta+273.15, 4); % kPa, assume measured at 4m height
 
-    % % Calculate R1
-    % R1 = RA .* (a + b .* n_N);
+    % Calculate R1
+    R1 = RA .* (a + b .* n_N);
 
     % Calculate R2
     RB = SIGMA .* (Ta+273.15).^4 .*(0.56 - 0.09 .* sqrt(ed_4_kPa)) .* (0.1 + 0.9 .* n_N);
@@ -498,4 +527,28 @@ end
 
 function T = Ferenheit_to_Kelvin(T)
     T = (T - 32) .* 5./9 + 273.15;
+end
+
+function Rn = back_calc_Rn(Ta, RH, RA)
+    
+    % Global Variables
+    global SIGMA
+
+    % Define Constants
+    r = 0.05;
+    a = 0.4; % assumption, vary with latitude
+    b = 0.274; % assumption, vary with latitude
+    n_N = 0.8; % assumption
+    ed_0_kPa = water_surface_vapor_pressure(Ta,RH./100);
+    ed_4_kPa = vapor_pressure_height(ed_0_kPa, Ta+273.15, 4); % kPa, assume measured at 4m height
+
+    % Calculate R1
+    R1 = RA .* (a + b .* n_N);
+
+    % Calculate R2
+    RB = SIGMA .* (Ta+273.15).^4 .*(0.56 - 0.09 .* sqrt(ed_4_kPa)) .* (0.1 + 0.9 .* n_N);
+
+    % Calculate Rn
+    Rn = R1 .* (1-r) - RB;
+
 end

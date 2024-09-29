@@ -67,7 +67,7 @@ e_p_kPa = saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC);
 e_p_0_kPa = water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC,combined_data.Daily_Avg_RH_./100);
 e_p_4_kPa = vapor_pressure_height(e_p_0_kPa, combined_data.Daily_Avg_AirTempC+273.15, h);
 
-e_l_kPa = salinity_vapor_pressure(combined_data.Lake_Temperature_C, combined_data.Salinity_g_per_kg);
+e_l_kPa = salinity_vapor_pressure(saturated_water_vapor_pressure(combined_data.Lake_Temperature_C), combined_data.Salinity_g_per_kg, (combined_data.Lake_Temperature_C));
 e_l_0_kPa = water_surface_vapor_pressure(combined_data.Lake_Air_Temperature_C,combined_data.Daily_Avg_RH_./100);
 e_l_4_kPa = vapor_pressure_height(e_l_0_kPa, combined_data.Lake_Air_Temperature_C+273.15, h);
 
@@ -189,36 +189,37 @@ function daily_air_temp_data = read_and_average_air_temperature(file_path)
 end
 
 
-%% Function: Crop tables to match date ranges
-function [cropped_table1, cropped_table2] = match_table_sizes(table1, table2)
-    % This function crops two tables so that their date ranges match.
+%% Function: crop matriex to be the same size
+function [cropped_combined_data, cropped_air_temp_data] = match_table_sizes(combined_data, air_temp_data)
+    % This function crops one of the two tables (combined_data or air_temp_data)
+    % so that their date ranges match.
     % Inputs:
-    % - table1: first table with the first column as Date
-    % - table2: second table with the first column as Date
+    % - combined_data: table with the first column as Date
+    % - air_temp_data: table with the first column as Date
     % Outputs:
-    % - cropped_table1: cropped table1 to match the date range of table2
-    % - cropped_table2: cropped table2 to match the date range of table1
+    % - cropped_combined_data: cropped combined_data table
+    % - cropped_air_temp_data: cropped air_temp_data table
 
     % Extract the date columns from both tables
-    dates_table1 = table1.Date;
-    dates_table2 = table2.Date;
+    combined_dates = combined_data.Date;
+    air_temp_dates = air_temp_data.Date;
 
     % Find the common date range (intersection of dates)
-    common_start_date = max(min(dates_table1), min(dates_table2));
-    common_end_date = min(max(dates_table1), max(dates_table2));
+    common_start_date = max(min(combined_dates), min(air_temp_dates));
+    common_end_date = min(max(combined_dates), max(air_temp_dates));
 
-    % Crop table1 to the common date range
-    cropped_table1 = table1(dates_table1 >= common_start_date & dates_table1 <= common_end_date, :);
+    % Crop the combined_data to the common date range
+    cropped_combined_data = combined_data(combined_dates >= common_start_date & combined_dates <= common_end_date, :);
 
-    % Crop table2 to the common date range
-    cropped_table2 = table2(dates_table2 >= common_start_date & dates_table2 <= common_end_date, :);
+    % Crop the air_temp_data to the common date range
+    cropped_air_temp_data = air_temp_data(air_temp_dates >= common_start_date & air_temp_dates <= common_end_date, :);
 
-    % Display a message if either table was cropped
-    if height(table1) ~= height(cropped_table1)
-        disp('Table 1 has been cropped to match Table 2.');
+    % Display a message if the tables were cropped
+    if height(combined_data) ~= height(cropped_combined_data)
+        disp('Combined data table has been cropped to match air temperature data.');
     end
-    if height(table2) ~= height(cropped_table2)
-        disp('Table 2 has been cropped to match Table 1.');
+    if height(air_temp_data) ~= height(cropped_air_temp_data)
+        disp('Air temperature data has been cropped to match combined data.');
     end
 end
 
@@ -259,9 +260,7 @@ function ph = vapor_pressure_height(p0, T, height) % T in C, height in m
 end
 
 
-function p = salinity_vapor_pressure(T, S) % p in kPa, T in C
-    pw = saturated_water_vapor_pressure(T);
-
+function p = salinity_vapor_pressure(pw, S, T) %pw in kPa, T in K
     a1 = -2.1609*10^(-4);
     a2 = -3.5015*10^(-7);
 
