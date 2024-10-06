@@ -1,6 +1,6 @@
 %% Initialization
 clearvars; close all; clc;
-set(groot, 'defaultLineLineWidth', 1);  % Sets the default line width to 2
+set(groot, 'defaultLineLineWidth', 1.5);  % Sets the default line width to 1.5
 
 %% Constant
 S = 81;

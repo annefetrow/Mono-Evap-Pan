@@ -105,8 +105,8 @@ function Rn = Rn_calc(Ta, RA)
 end
 
 function p_s = saturated_pressure(T) %kPa
-    T_F = 5./9.*(T-32);
-    p_s = 0.611 .* exp(17.27.*T_F ./ (T_F + 237.3));
+    T_C = 5./9.*(T-32);
+    p_s = 0.611 .* exp(17.27.*T_C ./ (T_C + 237.3));
 end
 
 function pw = vapor_pressure(T) % pw in Pa, T in K
