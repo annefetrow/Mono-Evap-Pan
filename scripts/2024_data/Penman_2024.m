@@ -496,6 +496,3 @@ function resultsTable = read_eva_rate(filePath)
         disp(resultsTable);
 end
 
-function T = Ferenheit_to_Kelvin(T)
-    T = (T - 32) .* 5./9 + 273.15;
-end
