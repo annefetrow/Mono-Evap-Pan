@@ -6,7 +6,7 @@ set(gca, 'LineWidth', 1.5); % Set line width for axes
 set(0, 'DefaultLineLineWidth', 1.5); % Set default line width for all lines
 
 %% Water Level
-% Path to the folder containing the CSV files
+% Path to the folder containing the CSV files for water level
 folderPath = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\Raw data – Evaporation Pan\Pan Water Level';
 
 % Read and combine data from all CSV files
@@ -21,7 +21,7 @@ grid on;
 %% Evaporation Rate
 [eva_rate,eva_date_time] = eva_rate_cal(all_h,all_date_time);
 
-eva_rate_avg = mean(eva_rate(eva_rate<3)); %mm/hr
+eva_rate_avg = mean(eva_rate(eva_rate<3)); %mm/hr, exclude out liers that have extremely high eva rate
 
 figure;
 bar(eva_date_time,eva_rate,'b',EdgeColor='b');
@@ -35,8 +35,8 @@ text(x_position, y_position, ['Average: ', num2str(eva_rate_avg, '%.2f'), ' mm/h
     'HorizontalAlignment', 'right', 'VerticalAlignment', 'top', ...
     'FontWeight', 'bold', 'Color', 'b', 'FontSize', 10);
 
-xlabel('Date Time');
-ylabel('mm/hr');
+xlabel('Date');
+ylabel('Eva Rate (mm/hr)');
 title('Eavporation Rate Over Time');
 hold off;
 
@@ -49,19 +49,19 @@ daily_eva_rate_avg = calculate_and_export_daily_avg(eva_rate, eva_date_time, 'C:
 folderPath = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\data\Raw data – Evaporation Pan\Water Temp';
 
 % Read and combine data from all CSV files
-[T_all, T_all_date_time] = read_and_combine_csv(folderPath,1,1); % most recent 1 file
+[T_water_all, T_water_all_date_time] = read_and_combine_csv(folderPath,1,1); % most recent 1 file
 
 % Plot temperature with time
 figure;
-plot(T_all_date_time,T_all, 'r-');
-xlabel('Date and Time');
+plot(T_water_all_date_time,T_water_all, 'r-');
+xlabel('Date');
 ylabel('Temperature (C)');
 title('Water Temperature over Time');
 grid on;
 axis tight;
 
-% Calculate daily evaporation rate and export to a file
-daily_water_temp_avg = calculate_and_export_daily_avg(T_all, T_all_date_time, 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024', '2024_daily_average_water_temperature.csv','Water Temp C');
+% Calculate daily water temperature and export to a file
+daily_water_temp_avg = calculate_and_export_daily_avg(T_water_all, T_water_all_date_time, 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024', '2024_daily_average_water_temperature.csv','Water Temp C');
 
 %% Air Temperature
 
@@ -74,15 +74,14 @@ folderPath = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan
 % Plot temperature with time
 figure;
 plot(T_air_all_date_time,T_air_all, 'g-');
-xlabel('Date and Time');
-ylabel('Temperature (C)');
+xlabel('Date');
+ylabel('Temp (C)');
 title('Air Temperature over Time');
 grid on;
 axis tight;
 
 % Calculate daily evaporation rate and export to a file
 daily_air_temp_avg = calculate_and_export_daily_avg(T_air_all, T_air_all_date_time, 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024', '2024_daily_average_air_temperature.csv','Air Temp C');
-
 
 %% Relative Humidity
 
@@ -92,50 +91,24 @@ folderPath = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan
 % Read and combine data from all CSV files
 [RH_all, RH_all_date_time] = read_and_combine_csv(folderPath,1,1); % most recent 1 file
 
-% Plot temperature with time
+% Plot RH with time
 figure;
 plot(RH_all_date_time,RH_all, 'k-');
-xlabel('Date and Time');
-ylabel('Relative Humidity (%)');
+xlabel('Date');
+ylabel('RH (%)');
 title('Relative Humidity over Time');
 grid on;
 axis tight;
 
-% Calculate daily evaporation rate and export to a file
+% Calculate daily RH and export to a file
 daily_RH_avg = calculate_and_export_daily_avg(RH_all, RH_all_date_time, 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\2024', '2024_daily_average_RH.csv','RH %');
 
-
 %% Plot Water Temperature, Air Temperature, and Relative Humidity
-% Create figure
-figure;
-
-% Plot water temperature and air temperature on the left y-axis
-yyaxis left;
-plot(T_all_date_time, T_all, '-r', 'DisplayName', 'Water Temperature');
-hold on;
-plot(T_air_all_date_time, T_air_all, '-g', 'DisplayName', 'Air Temperature');
-ylabel('Temperature (°C)');
-ylim([min([T_all; T_air_all]) - 1, max([T_all; T_air_all]) + 1]);
-legend('show');
-
-% Plot relative humidity on the right y-axis
-yyaxis right;
-plot(RH_all_date_time, RH_all, '--k', 'DisplayName', 'Relative Humidity');
-ylabel('Relative Humidity (%)');
-ylim([min(RH_all) - 10, max(RH_all) + 10]);
-
-% Add labels and title
-xlabel('Date and Time');
-title('Water Temperature, Air Temperature, and Relative Humidity Over Time');
-grid on;
-
-% Ensure the legend is visible
-legend('show');
-axis tight;
+plotByMonth(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all);
 
 %% Combine Water Temperature, Evaporation Rate, and Air Temperature
 % Trim the data to have the same date range
-[common_date_range, trimmed_eva_rate, trimmed_temp, trimmed_eva_time, trimmed_temp_time] = trim_to_common_date_boundaries(eva_rate, eva_date_time, T_all, T_all_date_time);
+[common_date_range, trimmed_eva_rate, trimmed_temp, trimmed_eva_time, trimmed_temp_time] = trim_to_common_date_boundaries(eva_rate, eva_date_time, T_water_all, T_water_all_date_time);
 
 % Filter air temperature data to the common date range
 filter_idx_air = T_air_all_date_time >= common_date_range(1) & T_air_all_date_time <= common_date_range(2);
@@ -170,9 +143,25 @@ title('Evaporation Rate, Water Temperature, and Air Temperature Over Time');
 grid on;
 
 %% Water Temperature and Evaporation Rate Correspondance
-plot_evaporation_data(trimmed_eva_time, trimmed_eva_rate, T_air_all_date_time, T_air_all, T_all_date_time, T_all, RH_all_date_time, RH_all, datetime('2024-08-15'));
+plot_evaporation_data(trimmed_eva_time, trimmed_eva_rate, T_air_all_date_time, T_air_all, T_water_all_date_time, T_water_all, RH_all_date_time, RH_all, datetime('2024-08-15'));
 
-%% Webb's Method
+%% Save the plot to folder plots
+% Specify the full path where you want to save the PDF file
+fileLocation = 'C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\plots\eva_rate_and_climate_factors.pdf';
+
+% Get the list of all open figures
+figures = findall(groot, 'Type', 'figure');
+
+% Loop through each figure and append to the same PDF
+for i = 1:length(figures)
+    % Specify to append to the PDF after the first page
+    if i == 1
+        exportgraphics(figures(i), fileLocation, 'ContentType', 'vector'); % First page
+    else
+        exportgraphics(figures(i), fileLocation, 'ContentType', 'vector', 'Append', true); % Append subsequent pages
+    end
+end
+
 
 %% Function: Read and Combine Data from CSV Files
 function [unique_data, unique_timestamp] = read_and_combine_csv(folderPath, startfile, endfile)
@@ -449,32 +438,6 @@ function daily_avg = calculate_and_export_daily_avg(data, date_time, folder_path
     writetable(daily_avg_table, full_file_path);
 end
 
-
-
-%% Function: Get Date and Time from Excel
-function t = get_time(filename,sheetname)
-    opts = detectImportOptions(filename);
-    A = readtable(filename,opts,'Sheet',sheetname);
-    t = datetime(A{:,1});
-end
-
-%% Function: Get Value
-function value = get_value(filename,sheetname)
-    opts = detectImportOptions(filename);
-    A = readtable(filename,opts,'Sheet',sheetname);
-    value = table2array(A(:,2:end));
-end
-
-% %% Function: Import Water Level and Corresponding Date and Time
-% function [h, t] = data_import(filename)
-%     opts = detectImportOptions(filename);
-%     A = readtable(filename,opts); % import whole table from excel
-% 
-%     % extract water level and time to array
-%     h = table2array(A(:,3)); % water level date at row 3
-%     t = datetime(A{:,2}); % time data at row 2
-% end
-
 %% Function: Evaporation Rate Calculation
 function [eva_rate,eva_date_time] = eva_rate_cal(h,date_time)
     eva_rate = [];
@@ -491,33 +454,54 @@ function [eva_rate,eva_date_time] = eva_rate_cal(h,date_time)
     end
 end
 
-%% Function: Weather Factor Plot
-function weather_factor(filename,eva_date_time,eva_rate)
-    sheets = sheetnames(filename);
-    num_plot = length(sheets);
+function plotByMonth(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all)
+    % Get unique months and years from the datetime arrays
+    months = month(T_water_all_date_time);
+    years = year(T_water_all_date_time);
+    uniqueMonths = unique([years, months], 'rows');
+
+    % Create figure
     figure;
-    
-    for i = 1:num_plot
-        A = readtable(filename,'Sheet',sheets(i),'PreserveVariableNames',true);
-        header = A.Properties.VariableNames;
-        station = header(2:end);
+    nMonths = size(uniqueMonths, 1);
+
+    for i = 1:nMonths
+        % Extract the data for the current month
+        currentMonth = uniqueMonths(i, 2);
+        currentYear = uniqueMonths(i, 1);
+
+        % Select data corresponding to the current month and year
+        idxWater = (month(T_water_all_date_time) == currentMonth) & (year(T_water_all_date_time) == currentYear);
+        idxAir = (month(T_air_all_date_time) == currentMonth) & (year(T_air_all_date_time) == currentYear);
+        idxRH = (month(RH_all_date_time) == currentMonth) & (year(RH_all_date_time) == currentYear);
+
+        % Create subplot for the current month (single column)
+        subplot(nMonths, 1, i); % One column, multiple rows
+
+        % Plot water and air temperature on the left y-axis
+        yyaxis left;
+        plot(T_water_all_date_time(idxWater), T_water_all(idxWater), '-r', 'DisplayName', 'Water Temp');
+        hold on;
+        plot(T_air_all_date_time(idxAir), T_air_all(idxAir), '-g', 'DisplayName', 'Air Temp');
+        ylabel('Temp (°C)');
+        ylim([min([T_water_all(idxWater); T_air_all(idxAir)]) - 1, max([T_water_all(idxWater); T_air_all(idxAir)]) + 1]);
         
-        value = table2array(A(:,2:end));
-        t = datetime(A{:,1});
-        subplot(num_plot,1,i);
-        if sheets(i) ~= "Precipitation,in"
-            plot(t,value,'LineWidth',1);
-            legend(station);
-            % legend('USC00044881','KCALEEVI12','BTN (CDEC)','USS0019L13S','USR0000CBEN','USR0000CBR4','USR0000CCRE','NOHRSC');
-            ylabel(sheets(i));
-        else
-            bar(t,-1*value);
-            hold on;
-            bar(eva_date_time,eva_rate,'b',EdgeColor='b');
-            hold off;
-            legend([station,{'Evaporation'}]);
-            % legend('USC00044881','KCALEEVI12','BTN (CDEC)','USS0019L13S','USR0000CBEN','USR0000CBR4','USR0000CCRE','NOHRSC');
-            ylabel(sheets(i));
+        % Plot relative humidity on the right y-axis
+        yyaxis right;
+        plot(RH_all_date_time(idxRH), RH_all(idxRH), '--k', 'DisplayName', 'RH');
+        ylabel('RH (%)');
+        ylim([min(RH_all(idxRH)) - 10, max(RH_all(idxRH)) + 10]);
+
+        % Add labels, title, and grid
+        xlabel('Date');
+        title(sprintf('Month: %d-%d', currentMonth, currentYear));
+        grid on;
+
+        % Show the legend for the first subplot
+        if i == 1
+            legend('show');
         end
     end
+
+    % Adjust the layout of the figure
+    sgtitle('Water Temperature, Air Temperature, and Relative Humidity by Month');
 end
