@@ -107,40 +107,7 @@ daily_RH_avg = calculate_and_export_daily_avg(RH_all, RH_all_date_time, 'C:\User
 plotByMonth(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all);
 
 %% Combine Water Temperature, Evaporation Rate, and Air Temperature
-% Trim the data to have the same date range
-[common_date_range, trimmed_eva_rate, trimmed_temp, trimmed_eva_time, trimmed_temp_time] = trim_to_common_date_boundaries(eva_rate, eva_date_time, T_water_all, T_water_all_date_time);
-
-% Filter air temperature data to the common date range
-filter_idx_air = T_air_all_date_time >= common_date_range(1) & T_air_all_date_time <= common_date_range(2);
-trimmed_T_air_time = T_air_all_date_time(filter_idx_air);
-trimmed_T_air = T_air_all(filter_idx_air);
-
-% Create figure
-figure;
-
-% Plot the evaporation rate
-yyaxis left;
-bar(trimmed_eva_time, trimmed_eva_rate, 'b', 'EdgeColor', 'b');
-ylabel('Evaporation Rate (mm/hr)');
-ylim([0, max(trimmed_eva_rate) + 1]); % Adjust limits for better visualization
-
-% Plot the water temperature
-yyaxis right;
-plot(trimmed_temp_time, trimmed_temp, '--r');
-ylabel('Water Temperature (°C)');
-ylim([min(trimmed_temp) - 1, max(trimmed_temp) + 1]); % Adjust limits for better visualization
-
-% Plot the air temperature
-hold on;
-yyaxis right; % Set to the left y-axis
-plot(trimmed_T_air_time, trimmed_T_air, '--g'); % Use a different line style for clarity
-ylabel('Water Temperature / Air Temperature (C)');
-legend('Evaporation Rate', 'Water Temperature', 'Air Temperature');
-
-% Add labels and title
-xlabel('Date');
-title('Evaporation Rate, Water Temperature, and Air Temperature Over Time');
-grid on;
+[trimmed_eva_time, trimmed_eva_rate] = plotMonthlyEvapWaterAir(eva_rate, eva_date_time, T_water_all, T_water_all_date_time, T_air_all, T_air_all_date_time);
 
 %% Water Temperature and Evaporation Rate Correspondance
 plot_evaporation_data(trimmed_eva_time, trimmed_eva_rate, T_air_all_date_time, T_air_all, T_water_all_date_time, T_water_all, RH_all_date_time, RH_all, datetime('2024-08-15'));
@@ -261,7 +228,6 @@ function [unique_data, unique_timestamp] = remove_duplicates_and_nans(all_data, 
     [unique_timestamp, uniqueIdx] = unique(all_timestamp, 'stable');
     unique_data = all_data(uniqueIdx);
 end
-
 
 %% Function: Trim Data to Common Date Boundaries
 function [common_date_range, data1_trimmed, data2_trimmed, time1_trimmed, time2_trimmed] = trim_to_common_date_boundaries(data1, time1, data2, time2)
@@ -454,6 +420,7 @@ function [eva_rate,eva_date_time] = eva_rate_cal(h,date_time)
     end
 end
 
+%% Function: Plot all climate factors together by different months
 function plotByMonth(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all)
     % Get unique months and years from the datetime arrays
     months = month(T_water_all_date_time);
@@ -504,4 +471,62 @@ function plotByMonth(T_water_all_date_time, T_water_all, T_air_all_date_time, T_
 
     % Adjust the layout of the figure
     sgtitle('Water Temperature, Air Temperature, and Relative Humidity by Month');
+end
+
+%% Function: Plot all evaporation rate with air and water temperature by different months
+function [trimmed_eva_time, trimmed_eva_rate] = plotMonthlyEvapWaterAir(eva_rate, eva_date_time, T_water_all, T_water_all_date_time, T_air_all, T_air_all_date_time)
+    % Trim the data to the same date range
+    [common_date_range, trimmed_eva_rate, trimmed_temp, trimmed_eva_time, trimmed_temp_time] = ...
+        trim_to_common_date_boundaries(eva_rate, eva_date_time, T_water_all, T_water_all_date_time);
+    
+    % Filter air temperature data to the common date range
+    filter_idx_air = T_air_all_date_time >= common_date_range(1) & T_air_all_date_time <= common_date_range(2);
+    trimmed_T_air_time = T_air_all_date_time(filter_idx_air);
+    trimmed_T_air = T_air_all(filter_idx_air);
+
+    % Extract unique months in the common date range
+    unique_months = unique(month(trimmed_eva_time));
+    num_months = numel(unique_months);
+
+    % Create figure with subplots
+    figure;
+    for i = 1:num_months
+        % Extract data for the current month
+        month_idx = month(trimmed_eva_time) == unique_months(i);
+        eva_time_month = trimmed_eva_time(month_idx);
+        eva_rate_month = trimmed_eva_rate(month_idx);
+
+        temp_time_month = trimmed_temp_time(month(trimmed_temp_time) == unique_months(i));
+        temp_month = trimmed_temp(month(trimmed_temp_time) == unique_months(i));
+
+        air_time_month = trimmed_T_air_time(month(trimmed_T_air_time) == unique_months(i));
+        air_month = trimmed_T_air(month(trimmed_T_air_time) == unique_months(i));
+
+        % Create a subplot for each month
+        subplot(num_months, 1, i);
+        
+        % Plot evaporation rate (left y-axis)
+        yyaxis left;
+        bar(eva_time_month, eva_rate_month, 'b', 'EdgeColor', 'b');
+        ylabel('Eva Rate (mm/hr)');
+        ylim([0, max(eva_rate_month) + 1]);
+        
+        % Plot water temperature (right y-axis)
+        yyaxis right;
+        plot(temp_time_month, temp_month, '--r');
+        hold on;
+        plot(air_time_month, air_month, '--g'); % Air temperature
+        ylabel('Water Temp / Air Temp (°C)');
+        ylim([min([temp_month; air_month]) - 1, max([temp_month; air_month]) + 1]);
+        
+        % Add labels and title
+        title(sprintf('Evaporation Rate, Water Temp, and Air Temp - Month %d', unique_months(i)));
+        if i == num_months
+            xlabel('Date');
+        end
+        grid on;
+    end
+
+    % Add a legend to the last subplot
+    legend('Evaporation Rate', 'Water Temperature', 'Air Temperature');
 end
