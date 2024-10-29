@@ -1,99 +1,162 @@
-library(ggplot2)
+# Load necessary libraries
 library(dplyr)
 library(readr)
 library(lubridate)
+library(ggplot2)
+library(vroom)
 
-# Function to read and combine CSV files from a folder
-read_and_combine_csv <- function(folder_path, date_col, value_col) {
-  files <- list.files(folder_path, full.names = TRUE, pattern = "\\.csv$")
-  data_list <- lapply(files, read_csv)
-  combined_data <- bind_rows(data_list)
-  # Assuming the first column is date and the second is the value
-  combined_data <- combined_data %>% select(date_col, value_col)
-  combined_data$date_col <- ymd_hms(combined_data[[date_col]])  # Convert to datetime
-  combined_data[[value_col]] <- as.numeric(combined_data[[value_col]])  # Ensure it's numeric
-  return(list(combined_data[[value_col]], combined_data$date_col))
-}
-
-# Function to calculate evaporation rate (stub, replace with actual implementation)
-eva_rate_cal <- function(water_level, date_time) {
-  # Placeholder: replace this with your actual evaporation rate calculation logic
-  return(water_level * 0.1)  # Example calculation
-}
-
-# Function to calculate daily average and export to CSV
-calculate_and_export_daily_avg <- function(data, date_time, output_folder, filename, variable_name) {
-  daily_avg <- data.frame(Date = as.Date(date_time), Value = data) %>%
-    group_by(Date) %>%
-    summarize(Daily_Average = mean(Value, na.rm = TRUE))
+data_import <- function(file_name) {
+  # data_import reads the data and timestamps from a CSV file.
+  #
+  # Args:
+  #   file_name: Path to the CSV file
+  #
+  # Returns:
+  #   A list containing:
+  #     - data: Water level or other data (third column)
+  #     - timestamp: Timestamps corresponding to the data (second column)
   
-  write_csv(daily_avg, file.path(output_folder, filename))
-  return(daily_avg)
+  # Read the CSV file
+  data_table <- read.csv(file = file_name, skip = 1, head = TRUE, sep=",")
+  
+  # Keep only the 2nd and 3rd columns
+  data_table <- data_table[, c(2, 3)]
+  
+  # Optionally rename columns for easier access (if desired)
+  colnames(data_table) <- c("Timestamp", "Value")  # Renaming columns (optional)
+  data_table$Timestamp <- mdy_hms(data_table$Timestamp) # Convert data type to datetime
+  
+  # Display the resulting data
+  print(data_table)
+  
+  # Return the data and timestamps as a list
+  return(list(value = data_table$Value, timestamp = data_table$Timestamp))
 }
 
-# Initialization
+read_and_combine_csv <- function(folder_path, start_file, end_file) {
+  # Get a list of all CSV files in the folder
+  csv_files <- list.files(folder_path, pattern = "*.csv", full.names = TRUE)
+  
+  # Check if the specified range is valid
+  num_files <- length(csv_files)
+  if (start_file < 1 || end_file > num_files || start_file > end_file) {
+    stop("Invalid file range specified. Please check start_file and end_file indices.")
+  }
+  
+  # Initialize empty data frames to hold combined data
+  all_data <- data.frame()
+  
+  # Loop through each file and read the data
+  for (k in start_file:end_file) {
+    # Read the CSV file
+    data <- data_import(csv_files[k])
+    
+    # Combine the data
+    all_data <- bind_rows(all_data, data)
+  }
+  
+  # Remove duplicates and NaN values
+  unique_data <- all_data %>%
+    distinct() %>%
+    filter(!is.na(value) & !is.na(timestamp))
+  
+  return(unique_data)
+}
+
+eva_rate_cal <- function(h, date_time) {
+  eva_rate <- c()
+  eva_date_time <- as.POSIXct(character())
+  
+  for (i in 1:(length(h) - 2)) {
+    window <- h[i:(i + 2)]
+    duration <- as.numeric(difftime(date_time[i + 2], date_time[i], units = "hours"))
+    
+    if (is.unsorted(-window) == FALSE) {  # Check if window is sorted in descending order
+      rate <- (window[1] - window[3]) / duration
+      eva_rate <- c(eva_rate, rate)
+      mean_timestamp <- mean(date_time[i:(i + 2)])
+      eva_date_time <- c(eva_date_time, mean_timestamp)  # Mean timestamp for the window
+    }
+  }
+  
+  # Return eva_rate and eva_date_time as a list
+  return(list(eva_rate = eva_rate, eva_date_time = eva_date_time))
+}
+
+# Set default line width globally for plots
+theme_set(theme_minimal(base_size = 14))
+
 # Water Level
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Pan Water Level"
-all_h, all_date_time <- read_and_combine_csv(folder_path, 5, 7)
+# Path to the folder containing the CSV files for water level
+folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Pan Water Level'
+all_data <- read_and_combine_csv(folderPath, 5, 7)
 
-# Plot Water Level
-ggplot(data = data.frame(DateTime = all_date_time, WaterLevel = all_h), aes(x = DateTime, y = WaterLevel)) +
-  geom_line(color = "blue") +
-  labs(x = "Date and Time", y = "Water Level (mm)", title = "Water Level over Time") +
+# Plot water level over time
+ggplot(all_data, aes(x = all_data$timestamp, y = all_data$value)) +
+  geom_line(color = 'blue') +
+  labs(x = 'Date and Time', y = 'Water Level (mm)', title = 'Water Level over Time') +
   theme_minimal()
 
-# Evaporation Rate
-eva_rate <- eva_rate_cal(all_h, all_date_time)
-eva_rate_avg <- mean(eva_rate[eva_rate < 3], na.rm = TRUE)  # Exclude outliers
+# Evaporation Rate Calculation Function
+eva_rate <- eva_rate_cal(all_data$value, all_data$timestamp)
+eva_rate <- list(
+  eva_rate = eva_rate$eva_rate[eva_rate$eva_rate < 3],
+  eva_date_time = eva_rate$eva_date_time[eva_rate$eva_rate < 3]
+)
+# eva_rate_avg <- mean(eva_rate<3, na.rm = TRUE) # exclude outliers
 
-# Bar plot for Evaporation Rate
-ggplot(data = data.frame(DateTime = all_date_time, EvaporationRate = eva_rate), aes(x = DateTime, y = EvaporationRate)) +
-  geom_bar(stat = "identity", fill = "blue") +
-  geom_hline(yintercept = eva_rate_avg, linetype = "dashed", color = "blue") +
-  annotate("text", x = tail(all_date_time, 1) - days(1), y = max(eva_rate, na.rm = TRUE) + 0.2,
-           label = paste("Average:", round(eva_rate_avg, 2), "mm/hr"),
-           hjust = 1, vjust = 1, fontface = "bold", color = "blue") +
-  labs(x = "Date", y = "Evaporation Rate (mm/hr)", title = "Evaporation Rate Over Time") +
-  theme_minimal()
-
-# Calculate and export daily evaporation rates
-calculate_and_export_daily_avg(eva_rate, eva_date_time, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024", "2024_daily_average_evaporation_rates.csv", "Evaporation Rate mm/hr")
-
-# Water Temperature
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Water Temp"
-T_water_all, T_water_all_date_time <- read_and_combine_csv(folder_path, 1, 1)
-
-# Plot Water Temperature
-ggplot(data = data.frame(DateTime = T_water_all_date_time, Temperature = T_water_all), aes(x = DateTime, y = Temperature)) +
-  geom_line(color = "red") +
-  labs(x = "Date", y = "Temperature (C)", title = "Water Temperature over Time") +
-  theme_minimal()
-
-# Calculate and export daily water temperature
-calculate_and_export_daily_avg(T_water_all, T_water_all_date_time, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024", "2024_daily_average_water_temperature.csv", "Water Temp C")
-
-# Air Temperature
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp"
-T_air_all, T_air_all_date_time <- read_and_combine_csv(folder_path, 1, 1)
-
-# Plot Air Temperature
-ggplot(data = data.frame(DateTime = T_air_all_date_time, Temperature = T_air_all), aes(x = DateTime, y = Temperature)) +
-  geom_line(color = "green") +
-  labs(x = "Date", y = "Temp (C)", title = "Air Temperature over Time") +
-  theme_minimal()
-
-# Calculate and export daily air temperature
-calculate_and_export_daily_avg(T_air_all, T_air_all_date_time, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024", "2024_daily_average_air_temperature.csv", "Air Temp C")
-
-# Relative Humidity
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/RH"
-RH_all, RH_all_date_time <- read_and_combine_csv(folder_path, 1, 1)
-
-# Plot Relative Humidity
-ggplot(data = data.frame(DateTime = RH_all_date_time, RH = RH_all), aes(x = DateTime, y = RH)) +
-  geom_line(color = "black") +
-  labs(x = "Date", y = "RH (%)", title = "Relative Humidity over Time") +
-  theme_minimal()
-
-# Calculate and export daily RH
-calculate_and_export_daily_avg(RH_all, RH_all_date_time, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024", "2024_daily_average_RH.csv", "RH %")
+# # Plot evaporation rate over time
+# ggplot() +
+#   geom_bar(aes(x = eva_date_time, y = eva_rate), stat = "identity", fill = "blue") +
+#   geom_hline(yintercept = eva_rate_avg, linetype = "dashed", color = "blue") +
+#   annotate("text", x = max(eva_date_time) - days(1), y = max(eva_rate) + 0.2, 
+#            label = paste("Average:", round(eva_rate_avg, 2), "mm/hr"), hjust = 1) +
+#   labs(x = 'Date', y = 'Evaporation Rate (mm/hr)', title = 'Evaporation Rate Over Time') +
+#   theme_minimal()
+# 
+# # Function to calculate daily averages and export to CSV
+# calculate_and_export_daily_avg <- function(values, date_times, output_path, file_name, col_name) {
+#   daily_avg <- tibble(Date = as.Date(date_times), Value = values) %>%
+#     group_by(Date) %>%
+#     summarize(Daily_Avg = mean(Value, na.rm = TRUE)) %>%
+#     rename(!!col_name := Daily_Avg)
+#   write_csv(daily_avg, file.path(output_path, file_name))
+#   daily_avg
+# }
+# 
+# # Calculate daily evaporation rate and export
+# output_folder <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024'
+# calculate_and_export_daily_avg(eva_rate, eva_date_time, output_folder, '2024_daily_average_evaporation_rates.csv', 'Evaporation Rate (mm/hr)')
+# 
+# # Water Temperature
+# folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Water Temp'
+# water_temp_data <- read_and_combine_csv(folderPath, skip = 1, col_to_use = c(1, 2))
+# 
+# ggplot(water_temp_data, aes(x = Date_Time, y = Value)) +
+#   geom_line(color = 'red') +
+#   labs(x = 'Date', y = 'Temperature (C)', title = 'Water Temperature over Time') +
+#   theme_minimal()
+# 
+# calculate_and_export_daily_avg(water_temp_data$Value, water_temp_data$Date_Time, output_folder, '2024_daily_average_water_temperature.csv', 'Water Temp (C)')
+# 
+# # Air Temperature
+# folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp'
+# air_temp_data <- read_and_combine_csv(folderPath, skip = 1, col_to_use = c(1, 2))
+# 
+# ggplot(air_temp_data, aes(x = Date_Time, y = Value)) +
+#   geom_line(color = 'green') +
+#   labs(x = 'Date', y = 'Temperature (C)', title = 'Air Temperature over Time') +
+#   theme_minimal()
+# 
+# calculate_and_export_daily_avg(air_temp_data$Value, air_temp_data$Date_Time, output_folder, '2024_daily_average_air_temperature.csv', 'Air Temp (C)')
+# 
+# # Relative Humidity
+# folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/RH'
+# rh_data <- read_and_combine_csv(folderPath, skip = 1, col_to_use = c(1, 2))
+# 
+# ggplot(rh_data, aes(x = Date_Time, y = Value)) +
+#   geom_line(color = 'black') +
+#   labs(x = 'Date', y = 'RH (%)', title = 'Relative Humidity over Time') +
+#   theme_minimal()
+# 
+# calculate_and_export_daily_avg(rh_data$Value, rh_data$Date_Time, output_folder, '2024_daily_average_RH.csv', 'RH (%)')
