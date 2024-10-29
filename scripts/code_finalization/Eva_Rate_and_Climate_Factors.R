@@ -92,7 +92,7 @@ folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pa
 all_data <- read_and_combine_csv(folderPath, 5, 7)
 
 # Plot water level over time
-ggplot(all_data, aes(x = all_data$timestamp, y = all_data$value)) +
+ggplot(all_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'blue') +
   labs(x = 'Date and Time', y = 'Water Level (mm)', title = 'Water Level over Time') +
   theme_minimal()
@@ -103,17 +103,17 @@ eva_rate <- list(
   eva_rate = eva_rate$eva_rate[eva_rate$eva_rate < 3],
   eva_date_time = eva_rate$eva_date_time[eva_rate$eva_rate < 3]
 )
-# eva_rate_avg <- mean(eva_rate<3, na.rm = TRUE) # exclude outliers
+eva_rate_avg <- mean(eva_rate$eva_rate, na.rm = TRUE) # exclude outliers
 
-# # Plot evaporation rate over time
-# ggplot() +
-#   geom_bar(aes(x = eva_date_time, y = eva_rate), stat = "identity", fill = "blue") +
-#   geom_hline(yintercept = eva_rate_avg, linetype = "dashed", color = "blue") +
-#   annotate("text", x = max(eva_date_time) - days(1), y = max(eva_rate) + 0.2, 
-#            label = paste("Average:", round(eva_rate_avg, 2), "mm/hr"), hjust = 1) +
-#   labs(x = 'Date', y = 'Evaporation Rate (mm/hr)', title = 'Evaporation Rate Over Time') +
-#   theme_minimal()
-# 
+# Plot evaporation rate over time
+ggplot() +
+  geom_bar(aes(x = eva_rate$eva_date_time, y = eva_rate$eva_rate), stat = "identity", fill = "blue") +
+  geom_hline(yintercept = eva_rate_avg, linetype = "dashed", color = "blue") +
+  annotate("text", x = max(eva_rate$eva_date_time) - days(1), y = max(eva_rate$eva_rate) + 0.2,
+           label = paste("Average:", round(eva_rate_avg, 2), "mm/hr"), hjust = 1) +
+  labs(x = 'Date', y = 'Eva Rate (mm/hr)', title = 'Evaporation Rate Over Time') +
+  theme_minimal()
+
 # # Function to calculate daily averages and export to CSV
 # calculate_and_export_daily_avg <- function(values, date_times, output_path, file_name, col_name) {
 #   daily_avg <- tibble(Date = as.Date(date_times), Value = values) %>%
