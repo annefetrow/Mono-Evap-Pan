@@ -10,6 +10,8 @@ The data files included are as follows:
 
 **Note: Current Code are designed uder a specific data format. So if your code is not running please check the data format first.**
 
+**Note2: The code is designed to read data in csv format, but not xlsx format**
+
 ## Evaporation Pan Water Level
 
 *File location: MONO-EVAP-PAN -> data -> eva pan*
