@@ -37,7 +37,6 @@ parse_datetime_flexible <- function(ori_datetime_str) {
   return(format(parsed_datetime, "%Y-%m-%d %H:%M"))
 }
 
-
 data_import <- function(file_name, data_column) {
   # data_import reads the data and timestamps from a CSV file.
   #
@@ -97,6 +96,30 @@ read_and_combine_csv <- function(folder_path, start_file, end_file, data_column)
   unique_data$timestamp <- as.POSIXct(unique_data$timestamp, format = "%Y-%m-%d %H:%M")
   
   return(unique_data)
+}
+
+# Function to trim data to a common date range
+trim_to_common_date_boundaries <- function(data1, time1, data2, time2) {
+  # Find the maximum of the start dates and the minimum of the end dates
+  common_start <- max(min(time1), min(time2))
+  common_end <- min(max(time1), max(time2))
+  
+  # Create the common date range
+  common_date_range <- c(common_start, common_end)
+  
+  # Trim data1 and data2 to this common date range
+  time1_trimmed <- time1[time1 >= common_start & time1 <= common_end]
+  data1_trimmed <- data1[time1 >= common_start & time1 <= common_end]
+  
+  time2_trimmed <- time2[time2 >= common_start & time2 <= common_end]
+  data2_trimmed <- data2[time2 >= common_start & time2 <= common_end]
+  
+  # Return the common date range and trimmed data
+  list(common_date_range = common_date_range,
+       data1_trimmed = data1_trimmed,
+       data2_trimmed = data2_trimmed,
+       time1_trimmed = time1_trimmed,
+       time2_trimmed = time2_trimmed)
 }
 
 eva_rate_cal <- function(h, date_time) {
@@ -260,6 +283,95 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
   grid.arrange(grobs = plots, ncol = 1, top = "Water Temperature, Air Temperature, and Relative Humidity by Month")
 }
 
-
 # Plot Water Temperature, Air Temperature, and Relative Humidity
 plotByMonth(water_temp_data$timestamp, water_temp_data$value, air_temp_data$timestamp, air_temp_data$value, rh_data$timestamp, rh_data$value)
+
+# Plot function for monthly evaporation rate with air and water temperatures
+plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
+  
+  # Trim the data to the same date range using the helper function
+  trimmed_data <- trim_to_common_date_boundaries(eva_rate$eva_rate, eva_rate$eva_date_time, water_temp_data$value, water_temp_data$timestamp)
+  common_date_range <- trimmed_data$common_date_range
+  trimmed_eva_time <- trimmed_data$time1_trimmed
+  trimmed_eva_rate <- trimmed_data$data1_trimmed
+  trimmed_temp_time <- trimmed_data$time2_trimmed
+  trimmed_temp <- trimmed_data$data2_trimmed
+  
+  # Filter air temperature data to the common date range
+  filter_idx_air <- air_temp_data$timestamp >= common_date_range[1] & air_temp_data$timestamp <= common_date_range[2]
+  trimmed_T_air_time <- air_temp_data$timestamp[filter_idx_air]
+  trimmed_T_air <- air_temp_data$value[filter_idx_air]
+  
+  # Extract unique months in the common date range
+  unique_months <- unique(month(trimmed_eva_time))
+  num_months <- length(unique_months)
+  
+  # List to store ggplot objects for each subplot
+  plots <- vector("list", num_months)
+  
+  # Loop over each month to create subplots
+  for (i in 1:num_months) { 
+    # Filter data for the current month
+    month_idx <- month(trimmed_eva_time) == unique_months[i]
+    month_data <- data.frame(
+      eva_time = trimmed_eva_time[month_idx],
+      eva_rate = trimmed_eva_rate[month_idx]
+    )
+    
+    temp_month_idx <- month(trimmed_temp_time) == unique_months[i]
+    temp_data <- data.frame(
+      temp_time = trimmed_temp_time[temp_month_idx],
+      temp_value = trimmed_temp[temp_month_idx]
+    )
+    
+    air_month_idx <- month(trimmed_T_air_time) == unique_months[i]
+    air_data <- data.frame(
+      air_time = trimmed_T_air_time[air_month_idx],
+      air_value = trimmed_T_air[air_month_idx]
+    )
+    
+    # Convert Date_time to POSIXct format for month_data, temp_data, and air_data
+    month_data$eva_time <- as.POSIXct(month_data$eva_time, format = "%Y-%m-%d %H:%M:%S")
+    temp_data$temp_time <- as.POSIXct(temp_data$temp_time, format = "%Y-%m-%d %H:%M:%S")
+    air_data$air_time <- as.POSIXct(air_data$air_time, format = "%Y-%m-%d %H:%M:%S")
+    
+    # Define the color mapping for the legend
+    color_mapping <- c("Water Temp" = "red", "Air Temp" = "green")
+    
+    # Plot for the current month
+    p <- ggplot() +
+      # Bar plot for Evaporation Rate
+      geom_bar(data = month_data, aes(x = eva_time, y = eva_rate, fill = "Evaporation Rate"), stat = "identity", alpha = 0.6) +
+      # Line plot for Water Temperature (dashed)
+      geom_line(data = temp_data, aes(x = temp_time, y = temp_value, color = "Water Temp"), linetype = "dashed") +
+      # Line plot for Air Temperature (dashed)
+      geom_line(data = air_data, aes(x = air_time, y = air_value, color = "Air Temp"), linetype = "dashed") +
+      # Customize the y-axis labels and secondary axis for Water Temp and Air Temp
+      scale_y_continuous(
+        name = "Evaporation Rate (mm/hr)",
+        sec.axis = sec_axis(~ ., name = "Temperature (°C)")
+      ) +
+      # Set title and x-axis label
+      labs(title = paste("Evaporation Rate, Water Temp, and Air Temp - Month", unique_months[i]),
+           x = "Date") +
+      # Apply color mappings to the legend
+      scale_color_manual(values = color_mapping) +
+      scale_fill_manual(values = c("Evaporation Rate" = "blue")) +  # Fill color for Evaporation Rate bar
+      # Apply minimal theme with customized axis labels and title
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "top",  # Display the legend at the top
+        axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels for better readability
+      )
+    
+    # Store plot in list
+    plots[[i]] <- p
+  }
+  
+  # Arrange all plots in a single figure
+  grid.arrange(grobs = plots, ncol = 1)
+}
+
+plotMonthlyEvapWaterAir(eva_rate, water_temp_data, air_temp_data)
+
