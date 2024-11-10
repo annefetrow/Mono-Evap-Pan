@@ -12,16 +12,15 @@ library(vroom)
 library(gridExtra)
 library(readxl)
 
-# Define global constants
-RHO_W <- 1000        # Density of water in kg/m^3
-RHO_L <- 1060        # Density of liquid in kg/m^3
-SIGMA <- 5.67e-8     # Stefan-Boltzmann constant in W/(m^2 * K^4)
-P <- 101325          # Pressure in Pa
-Cp_w <- 3.7794e-3    # Specific heat of water in MJ/(kg * K)
-Cp_a <- 1.005e-3     # Specific heat of air in MJ/(kg * K)
-LAMBDA <- 2.45       # Latent heat in MJ/kg
-
-
+# Define global constants in an environment
+globalVars <- new.env()
+globalVars$RHO_W <- 1000       # Density of water in kg/m^3
+globalVars$RHO_L <- 1060       # Density of liquid in kg/m^3
+globalVars$SIGMA <- 5.67e-8    # Stefan-Boltzmann constant in W/(m^2 * K^4)
+globalVars$P <- 101325         # Pressure in Pa
+globalVars$Cp_w <- 3.7794e-3   # Specific heat of water in MJ/(kg * K)
+globalVars$Cp_a <- 1.005e-3    # Specific heat of air in MJ/(kg * K)
+globalVars$LAMBDA <- 2.45      # Latent heat in MJ/kg
 
 # Define folder path and date range
 folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024"
@@ -268,3 +267,130 @@ wind_speed_data <- wind_speed_data %>% filter(Date >= common_start_date & Date <
 combined_data <- combined_data %>%
   left_join(wind_speed_data %>% select(Date, Wind_Speed_m_s), by = "Date")
 
+# Function to calculate E
+penman_calc <- function(delta, gamma, Rn, Ea) {
+  G <- 0 # MJ/m2d
+  E <- 1 / globalVars$LAMBDA * (delta * (Rn - G) + gamma * Ea) / ((delta + gamma) * globalVars$RHO_L)
+  return(E)
+}
+
+# Function to calculate Rn
+Rn_calc <- function(Ta, RH, R1) {
+  r <- 0.05
+  a <- 0.4
+  b <- 0.274
+  n_N <- 0.8
+  ed_0_kPa <- water_surface_vapor_pressure(Ta, RH / 100)
+  ed_4_kPa <- vapor_pressure_height(ed_0_kPa, Ta + 273.15, 4)
+  
+  # Calculate RB
+  RB <- globalVars$SIGMA * (Ta + 273.15)^4 * (0.56 - 0.09 * sqrt(ed_4_kPa)) * (0.1 + 0.9 * n_N)
+  
+  # Calculate Rn
+  Rn <- R1 * (1 - r) - RB
+  return(Rn)
+}
+
+# Function for saturated water vapor pressure
+saturated_water_vapor_pressure <- function(T) {
+  p_sat <- 0.611 * exp(17.27 * T / (T + 237.3))
+  return(p_sat)
+}
+
+# Function for water surface vapor pressure
+water_surface_vapor_pressure <- function(T, RH) {
+  p_sur <- 0.611 * exp(17.27 * T / (T + 237.3)) * RH
+  return(p_sur)
+}
+
+# Function for vapor pressure at a certain height
+vapor_pressure_height <- function(p0, T, height) {
+  M <- 18.015 * 10^(-3)  # kg/mol
+  gravity <- 9.81
+  R <- 8.314
+  ph <- p0 * exp(-1 * (M * gravity * height) / (R * T))
+  return(ph)
+}
+
+# Function for salinity-adjusted vapor pressure
+salinity_vapor_pressure <- function(T, S) {
+  pw <- saturated_water_vapor_pressure(T)
+  a1 <- -2.1609 * 10^(-4)
+  a2 <- -3.5015 * 10^(-7)
+  p <- pw * 10^(a1 * S + a2 * S^2)
+  return(p)
+}
+
+# Function to calculate delta
+delta_calc <- function(S, T) {
+  dT <- 0.1
+  delta <- (salinity_vapor_pressure(T + dT, S) - salinity_vapor_pressure(T - dT, S)) / (2 * dT)
+  return(delta)
+}
+
+# Function for gamma calculation
+salinity_sigma_calc <- function() {
+  mu <- 0.622
+  gamma <- (globalVars$Cp_a * globalVars$P / 1000) / (mu * globalVars$LAMBDA)
+  return(gamma)
+}
+
+# Calculate delta
+delta <- delta_calc(combined_data$Salinity_g_per_kg, combined_data$Lake_Air_Temperature_C)  # kPa/K
+
+# Specific Heat
+gamma <- salinity_sigma_calc()  # kPa/K
+
+# Radiation calculation
+Rn <- Rn_calc(combined_data$Lake_Air_Temperature_C, combined_data$RH...., combined_data$Solar_Radiation_W_m2)  # W/m^2
+
+# Check Ea with theoretical Ea
+Ea_theo <- 6.43 * (0.18 + 0.55 * wind_speed_data$Wind_Speed_m_s) * 
+  (saturated_water_vapor_pressure(combined_data$Water.Temp..C.) - 
+     water_surface_vapor_pressure(combined_data$Air.Temp..C., combined_data$RH.... / 100))
+
+# Calculate En
+Ea_pan <- combined_data$Evaporation.Rate..mm.hr. * globalVars$RHO_W * globalVars$LAMBDA * 24 / 1000  # MJ/m^2/day
+E_pan <- penman_calc(delta, gamma, Rn * 0.0864, Ea_pan) * 1000  # mm/day
+E_theo <- penman_calc(delta, gamma, Rn * 0.0864, Ea_theo) * 1000  # mm/day
+
+# Plotting
+ggplot(data = combined_data, aes(x = Date)) +
+  geom_line(aes(y = E_pan, color = "Lake, from Pan Eva")) +
+  geom_line(aes(y = E_theo, color = "Lake, from Theoretical Eva")) +
+  geom_line(aes(y = Evaporation.Rate..mm.hr. * 24, color = "Pan Eva")) +
+  labs(y = "mm/day", x = "Date") +
+  scale_color_manual(values = c("Lake, from Pan Eva" = "blue",
+                                "Lake, from Theoretical Eva" = "red",
+                                "Pan Eva" = "green")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# Calculate Conversion Coefficients
+C_pan <- E_pan / (combined_data$Evaporation.Rate..mm.hr. * 24)
+C_theo <- E_theo / (combined_data$Evaporation.Rate..mm.hr. * 24)
+
+# Add conversion coefficients to combined_data for plotting
+combined_data$C_pan <- C_pan
+combined_data$C_theo <- C_theo
+
+# Plotting Conversion Coefficients
+ggplot(data = combined_data, aes(x = Date)) +
+  geom_line(aes(y = C_pan, color = "From Pan Eva")) +
+  geom_line(aes(y = C_theo, color = "From Theoretical Eva")) +
+  labs(y = "Conversion Coefficient", x = "Date") +
+  scale_color_manual(values = c("From Pan Eva" = "blue", "From Theoretical Eva" = "red")) +
+  theme_minimal() +
+  theme(legend.title = element_blank()) +
+  labs(color = "Evaporation Source")  # Adds legend label
+
+# Create a data frame with the calculated data
+output_table <- data.frame(
+  Date = combined_data$Date,
+  Lake_From_Pan_Eva_mm_d = E_pan,
+  Lake_From_Theoretical_Eva_mm_d = E_theo,
+  Pan_Eva_mm_d = combined_data$Evaporation.Rate..mm.hr. * 24
+)
+
+# Write the data frame to a CSV file
+write.csv(output_table, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_estimate_Penman_RStudio.csv", row.names = FALSE)

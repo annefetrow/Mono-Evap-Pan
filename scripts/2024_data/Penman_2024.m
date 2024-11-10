@@ -71,13 +71,13 @@ delta = delta_calc(combined_data.Salinity_g_per_kg, combined_data.Lake_Air_Tempe
 gamma = salinity_sigma_calc; % kPa/K
 
 %% Radation
-Rn = Rn_calc(combined_data.Lake_Air_Temperature_C, combined_data.Daily_Avg_RH_, combined_data.Solar_Radiation_W_m2); % W/m2
+Rn = Rn_calc(combined_data.Lake_Air_Temperature_C, combined_data.RH___, combined_data.Solar_Radiation_W_m2); % W/m2
 
 %% Check Ea with theoretical Ea
-Ea_theo = 6.43 .* (0.18 + 0.55 .* wind_speed_data.Average_Wind_Speed_m_s) .* (saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC) - water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC,combined_data.Daily_Avg_RH_./100));
+Ea_theo = 6.43 .* (0.18 + 0.55 .* wind_speed_data.Average_Wind_Speed_m_s) .* (saturated_water_vapor_pressure(combined_data.WaterTemp_C_) - water_surface_vapor_pressure(combined_data.AirTemp_C_,combined_data.RH___./100));
 
 %% Calculate En
-Ea_pan = combined_data.Daily_Avg_EvaporationRateMm_hr.*RHO_W.*2.45.*24./1000; % MJ/m2d
+Ea_pan = combined_data.EvaporationRate_mm_hr_.*RHO_W.*2.45.*24./1000; % MJ/m2d
 E_pan = penman_calc(delta, gamma, Rn.*0.0864, Ea_pan) .* 1000; % mm/d
 E_theo = penman_calc(delta, gamma, Rn.*0.0864, Ea_theo) .* 1000; % mm/d
 
@@ -86,13 +86,13 @@ ylabel('mm/d');
 xlabel('Date');
 hold on;
 plot(combined_data.Date,E_theo);
-plot(combined_data.Date,combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
+plot(combined_data.Date,combined_data.EvaporationRate_mm_hr_.*24);
 
 legend('Lake, from Pan Eva','Lake, from Theoretical Eva','Pan Eva');
 
 %% Calculate Conversion Coefficient
-C_pan = E_pan ./ (combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
-C_theo = E_theo ./ (combined_data.Daily_Avg_EvaporationRateMm_hr.*24);
+C_pan = E_pan ./ (combined_data.EvaporationRate_mm_hr_.*24);
+C_theo = E_theo ./ (combined_data.EvaporationRate_mm_hr_.*24);
 
 figure;
 plot(combined_data.Date,C_pan);
@@ -105,7 +105,7 @@ legend('From Pan Eva','From Theoretical Eva');
 
 %% Save the Results
 % Create a table with the calculated data
-output_table = table(combined_data.Date, E_pan, E_theo, combined_data.Daily_Avg_EvaporationRateMm_hr.*24, ...
+output_table = table(combined_data.Date, E_pan, E_theo, combined_data.EvaporationRate_mm_hr_.*24, ...
     'VariableNames', {'Date', 'Lake_From_Pan_Eva_mm_d', 'Lake_From_Theoretical_Eva_mm_d', 'Pan_Eva_mm_d'});
 
 % Write the table to a CSV file
@@ -425,74 +425,3 @@ function Cp = specific_heat()
     Cp = (a1 + a2*S + a3*S^2) + (b1 + b2*S + b3*S^2)*T + (c1 + c2*S + c3*S^2)*T^2 +(d1 + d2*S + d3*S^2)*T^3;
 
 end
-
-function resultsTable = read_weather_factor(filePath)
-    
-    % Define the date range
-    startDate = datetime('16-Aug-2023', 'InputFormat', 'dd-MMM-yyyy');
-    endDate = datetime('26-Oct-2023', 'InputFormat', 'dd-MMM-yyyy');
-    
-    % Get information about the Excel file
-    [~, sheetNames] = xlsfinfo(filePath);
-    
-    % Initialize a table to store the results
-    resultsTable = table;
-    
-    % Loop through each sheet
-    for i = 1:length(sheetNames)
-        % Read the data from the current sheet
-        sheetName = sheetNames{i};
-        dataTable = readtable(filePath, 'Sheet', sheetName);
-        
-        % Assuming the first column is the date and the rest are data columns
-        dates = datetime(dataTable{:,1}, 'InputFormat', 'dd-MMM-yyyy');
-        
-        % Filter the data based on the date range
-        dateFilter = dates >= startDate & dates <= endDate;
-        filteredData = dataTable(dateFilter, :);
-        
-        % Calculate the average of the data columns (excluding NaN values)
-        avgValues = mean(filteredData{:, 2:end}, 2, 'omitnan');
-        
-        % Store the dates and average values in the results table
-        if isempty(resultsTable)
-            % Add dates as the first column in the table
-            resultsTable.Date = dates(dateFilter);
-        end
-        resultsTable.(sheetName) = avgValues(:);
-
-        % Display the results table
-        disp(resultsTable);
-    end
-end
-
-function resultsTable = read_eva_rate(filePath)
-
-    % Define the date range
-    startDate = datetime('16-Aug-2023', 'InputFormat', 'dd-MMM-yyyy');
-    endDate = datetime('26-Oct-2023', 'InputFormat', 'dd-MMM-yyyy');
-    
-    % Get information about the Excel file
-    [~, sheetNames] = xlsfinfo('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\daily_average_evaporation_rates.csv');
-    
-    
-    % Initialize a table to store the results
-    resultsTable = table;
-    
-        dataTable = readtable('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\daily_average_evaporation_rates.csv');
-        
-        % Assuming the first column is the date and the rest are data columns
-        dates = datetime(dataTable{:,1}, 'InputFormat', 'dd-MMM-yyyy');
-        
-        % Filter the data based on the date range
-        dateFilter = dates >= startDate & dates <= endDate;
-        filteredData = dataTable(dateFilter, :);
-        
-        % Store the dates and average values in the results table
-        resultsTable.Date = dates(dateFilter);
-        resultsTable.(sheetNames{1}) = mean(filteredData{:, 2:end}, 2, 'omitnan');
-
-        % Display the results table
-        disp(resultsTable);
-end
-
