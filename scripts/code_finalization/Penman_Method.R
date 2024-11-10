@@ -12,6 +12,9 @@ library(vroom)
 library(gridExtra)
 library(readxl)
 
+# Define the base path on your computer that point to the Mono Lake Pan folder
+base_path <- "//engin-labs.m.storage.umich.edu/engin-labs/home/mwanxuan/windat.v2/Documents/GitHub/Mono-Evap-Pan"
+
 # Define global constants in an environment
 globalVars <- new.env()
 globalVars$RHO_W <- 1000       # Density of water in kg/m^3
@@ -23,7 +26,9 @@ globalVars$Cp_a <- 1.005e-3    # Specific heat of air in MJ/(kg * K)
 globalVars$LAMBDA <- 2.45      # Latent heat in MJ/kg
 
 # Define folder path and date range
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024"
+folder_path <- file.path(base_path, "output/2024")
+
+# Input: specify the date range
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
 
@@ -79,7 +84,7 @@ combined_data <- read_and_crop_data(folder_path, start_date, end_date)
 # Initialize the Salinity_g_per_kg column with zeros
 combined_data$Salinity_g_per_kg <- 0  # Set initial values to 0
 
-# Define the date boundaries for setting different salinity values
+# Input: Define the date boundaries for setting different salinity values
 start_date <- as.Date("2024-07-20")
 mid_date <- as.Date("2024-08-15")
 
@@ -151,7 +156,7 @@ read_and_average_air_temperature <- function(file_path) {
 }
 
 # Load air temperature data
-file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Air Temperature C.xlsx"
+file_path <- file.path(base_path, "data/2024_station_data/Air Temperature C.xlsx")
 air_temp_data <- read_and_average_air_temperature(file_path)
 
 # Ensure combined_data and air_temp_data have Date columns in datetime format
@@ -198,7 +203,7 @@ read_and_average_solar_radiation <- function(file_path) {
 }
 
 # Example usage with solar radiation data
-file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Radiation.xlsx"
+file_path <- file.path(base_path, "data/2024_station_data/Radiation.xlsx")
 
 # Assume combined_data is pre-loaded or defined
 solar_radiation_data <- read_and_average_solar_radiation(file_path)
@@ -247,7 +252,7 @@ read_and_average_wind_speed <- function(file_path) {
 }
 
 # Example usage with wind speed data
-file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Wind Speed m_s.xlsx"
+file_path <- file.path(base_path, "data/2024_station_data/Wind Speed m_s.xlsx")
 
 # Assume combined_data is pre-loaded or defined
 wind_speed_data <- read_and_average_wind_speed(file_path)
@@ -393,4 +398,4 @@ output_table <- data.frame(
 )
 
 # Write the data frame to a CSV file
-write.csv(output_table, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_estimate_Penman_RStudio.csv", row.names = FALSE)
+write.csv(output_table, file.path(base_path,"output/eva_estimate_Penman_RStudio.csv"), row.names = FALSE)
