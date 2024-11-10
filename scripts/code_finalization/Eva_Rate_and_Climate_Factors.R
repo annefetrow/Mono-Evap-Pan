@@ -185,7 +185,7 @@ calculate_and_export_daily_avg <- function(values, date_times, output_path, file
 
 # Calculate daily evaporation rate and export
 output_folder <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024'
-calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output_folder, '2024_daily_average_evaporation_rates.csv', 'Evaporation Rate (mm/hr)')
+calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output_folder, '2024_daily_average_evaporation_rates.csv', 'Evaporation_Rate_mm_hr')
 
 # Water Temperature
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Water Temp'
@@ -196,7 +196,7 @@ ggplot(water_temp_data, aes(x = timestamp, y = value)) +
   labs(x = 'Date', y = 'Temperature (C)', title = 'Water Temperature over Time') +
   theme_minimal()
 
-calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, '2024_daily_average_water_temperature.csv', 'Water Temp (C)')
+calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, '2024_daily_average_water_temperature.csv', 'WaterTemp_C')
 
 # Air Temperature
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp'
@@ -207,7 +207,7 @@ ggplot(air_temp_data, aes(x = timestamp, y = value)) +
   labs(x = 'Date', y = 'Temperature (C)', title = 'Air Temperature over Time') +
   theme_minimal()
 
-calculate_and_export_daily_avg(air_temp_data$value, air_temp_data$timestamp, output_folder, '2024_daily_average_air_temperature.csv', 'Air Temp (C)')
+calculate_and_export_daily_avg(air_temp_data$value, air_temp_data$timestamp, output_folder, '2024_daily_average_air_temperature.csv', 'AirTemp_C')
 
 # Relative Humidity
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/RH'
@@ -218,7 +218,7 @@ ggplot(rh_data, aes(x = timestamp, y = value)) +
   labs(x = 'Date', y = 'RH (%)', title = 'Relative Humidity over Time') +
   theme_minimal()
 
-calculate_and_export_daily_avg(rh_data$value, rh_data$timestamp, output_folder, '2024_daily_average_RH.csv', 'RH (%)')
+calculate_and_export_daily_avg(rh_data$value, rh_data$timestamp, output_folder, '2024_daily_average_RH.csv', 'RH_Percent')
 
 plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
 

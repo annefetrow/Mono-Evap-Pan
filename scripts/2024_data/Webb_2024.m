@@ -63,17 +63,17 @@ end
 disp(combined_data(1:10, {'Date', 'Lake_Temperature_C'}));
 
 %% Calculate Saturation Vapor Pressure
-e_p_kPa = saturated_water_vapor_pressure(combined_data.Daily_Avg_WaterTempC);
-e_p_0_kPa = water_surface_vapor_pressure(combined_data.Daily_Avg_AirTempC,combined_data.Daily_Avg_RH_./100);
-e_p_4_kPa = vapor_pressure_height(e_p_0_kPa, combined_data.Daily_Avg_AirTempC+273.15, h);
+e_p_kPa = saturated_water_vapor_pressure(combined_data.WaterTemp_C);
+e_p_0_kPa = water_surface_vapor_pressure(combined_data.AirTemp_C,combined_data.RH_Percent./100);
+e_p_4_kPa = vapor_pressure_height(e_p_0_kPa, combined_data.AirTemp_C+273.15, h);
 
 e_l_kPa = salinity_vapor_pressure(combined_data.Lake_Temperature_C, combined_data.Salinity_g_per_kg);
-e_l_0_kPa = water_surface_vapor_pressure(combined_data.Lake_Air_Temperature_C,combined_data.Daily_Avg_RH_./100);
+e_l_0_kPa = water_surface_vapor_pressure(combined_data.Lake_Air_Temperature_C,combined_data.RH_Percent./100);
 e_l_4_kPa = vapor_pressure_height(e_l_0_kPa, combined_data.Lake_Air_Temperature_C+273.15, h);
 
 
 %% Calculate Lake Evaporation
-E_lake = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa)) .* combined_data.Daily_Avg_EvaporationRateMm_hr;
+E_lake = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa)) .* combined_data.Evaporation_Rate_mm_hr;
 coefficient = ((e_l_kPa - e_l_4_kPa) ./ (e_p_kPa - e_p_4_kPa));
 
 %% Plot
@@ -95,8 +95,8 @@ xlabel('Date');
 figure;
 plot(combined_data.Date,combined_data.Lake_Temperature_C);
 hold on;
-plot(combined_data.Date,combined_data.Daily_Avg_WaterTempC);
-plot(combined_data.Date,combined_data.Daily_Avg_AirTempC);
+plot(combined_data.Date,combined_data.WaterTemp_C);
+plot(combined_data.Date,combined_data.AirTemp_C);
 plot(combined_data.Date,combined_data.Lake_Air_Temperature_C);
 hold off;
 xlabel('Date');

@@ -12,9 +12,6 @@ library(vroom)
 library(gridExtra)
 library(readxl)
 
-# Define the base path on your computer that point to the Mono Lake Pan folder
-base_path <- "//engin-labs.m.storage.umich.edu/engin-labs/home/mwanxuan/windat.v2/Documents/GitHub/Mono-Evap-Pan"
-
 # Define global constants in an environment
 globalVars <- new.env()
 globalVars$RHO_W <- 1000       # Density of water in kg/m^3
@@ -26,9 +23,7 @@ globalVars$Cp_a <- 1.005e-3    # Specific heat of air in MJ/(kg * K)
 globalVars$LAMBDA <- 2.45      # Latent heat in MJ/kg
 
 # Define folder path and date range
-folder_path <- file.path(base_path, "output/2024")
-
-# Input: specify the date range
+folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024"
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
 
@@ -84,7 +79,7 @@ combined_data <- read_and_crop_data(folder_path, start_date, end_date)
 # Initialize the Salinity_g_per_kg column with zeros
 combined_data$Salinity_g_per_kg <- 0  # Set initial values to 0
 
-# Input: Define the date boundaries for setting different salinity values
+# Define the date boundaries for setting different salinity values
 start_date <- as.Date("2024-07-20")
 mid_date <- as.Date("2024-08-15")
 
@@ -96,7 +91,6 @@ combined_data$Salinity_g_per_kg <- ifelse(
     85  # Salinity for later dates
   )
 )
-
 
 match_table_sizes <- function(table1, table2) {
   # Ensure that the Date columns are in Date format
@@ -156,7 +150,7 @@ read_and_average_air_temperature <- function(file_path) {
 }
 
 # Load air temperature data
-file_path <- file.path(base_path, "data/2024_station_data/Air Temperature C.xlsx")
+file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Air Temperature C.xlsx"
 air_temp_data <- read_and_average_air_temperature(file_path)
 
 # Ensure combined_data and air_temp_data have Date columns in datetime format
@@ -203,7 +197,7 @@ read_and_average_solar_radiation <- function(file_path) {
 }
 
 # Example usage with solar radiation data
-file_path <- file.path(base_path, "data/2024_station_data/Radiation.xlsx")
+file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Radiation.xlsx"
 
 # Assume combined_data is pre-loaded or defined
 solar_radiation_data <- read_and_average_solar_radiation(file_path)
@@ -252,7 +246,7 @@ read_and_average_wind_speed <- function(file_path) {
 }
 
 # Example usage with wind speed data
-file_path <- file.path(base_path, "data/2024_station_data/Wind Speed m_s.xlsx")
+file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Wind Speed m_s.xlsx"
 
 # Assume combined_data is pre-loaded or defined
 wind_speed_data <- read_and_average_wind_speed(file_path)
@@ -347,15 +341,15 @@ delta <- delta_calc(combined_data$Salinity_g_per_kg, combined_data$Lake_Air_Temp
 gamma <- salinity_sigma_calc()  # kPa/K
 
 # Radiation calculation
-Rn <- Rn_calc(combined_data$Lake_Air_Temperature_C, combined_data$RH...., combined_data$Solar_Radiation_W_m2)  # W/m^2
+Rn <- Rn_calc(combined_data$Lake_Air_Temperature_C, combined_data$RH_Percent, combined_data$Solar_Radiation_W_m2)  # W/m^2
 
 # Check Ea with theoretical Ea
 Ea_theo <- 6.43 * (0.18 + 0.55 * wind_speed_data$Wind_Speed_m_s) * 
-  (saturated_water_vapor_pressure(combined_data$Water.Temp..C.) - 
-     water_surface_vapor_pressure(combined_data$Air.Temp..C., combined_data$RH.... / 100))
+  (saturated_water_vapor_pressure(combined_data$WaterTemp_C) - 
+     water_surface_vapor_pressure(combined_data$AirTemp_C, combined_data$RH_Percent / 100))
 
 # Calculate En
-Ea_pan <- combined_data$Evaporation.Rate..mm.hr. * globalVars$RHO_W * globalVars$LAMBDA * 24 / 1000  # MJ/m^2/day
+Ea_pan <- combined_data$Evaporation_Rate_mm_hr * globalVars$RHO_W * globalVars$LAMBDA * 24 / 1000  # MJ/m^2/day
 E_pan <- penman_calc(delta, gamma, Rn * 0.0864, Ea_pan) * 1000  # mm/day
 E_theo <- penman_calc(delta, gamma, Rn * 0.0864, Ea_theo) * 1000  # mm/day
 
@@ -363,8 +357,8 @@ E_theo <- penman_calc(delta, gamma, Rn * 0.0864, Ea_theo) * 1000  # mm/day
 ggplot(data = combined_data, aes(x = Date)) +
   geom_line(aes(y = E_pan, color = "Lake, from Pan Eva")) +
   geom_line(aes(y = E_theo, color = "Lake, from Theoretical Eva")) +
-  geom_line(aes(y = Evaporation.Rate..mm.hr. * 24, color = "Pan Eva")) +
-  labs(y = "mm/day", x = "Date") +
+  geom_line(aes(y = Evaporation_Rate_mm_hr * 24, color = "Pan Eva")) +
+  labs(y = "Eva Rate, mm/d", x = "Date") +
   scale_color_manual(values = c("Lake, from Pan Eva" = "blue",
                                 "Lake, from Theoretical Eva" = "red",
                                 "Pan Eva" = "green")) +
@@ -372,8 +366,8 @@ ggplot(data = combined_data, aes(x = Date)) +
   theme(legend.title = element_blank())
 
 # Calculate Conversion Coefficients
-C_pan <- E_pan / (combined_data$Evaporation.Rate..mm.hr. * 24)
-C_theo <- E_theo / (combined_data$Evaporation.Rate..mm.hr. * 24)
+C_pan <- E_pan / (combined_data$Evaporation_Rate_mm_hr * 24)
+C_theo <- E_theo / (combined_data$Evaporation_Rate_mm_hr * 24)
 
 # Add conversion coefficients to combined_data for plotting
 combined_data$C_pan <- C_pan
@@ -394,8 +388,8 @@ output_table <- data.frame(
   Date = combined_data$Date,
   Lake_From_Pan_Eva_mm_d = E_pan,
   Lake_From_Theoretical_Eva_mm_d = E_theo,
-  Pan_Eva_mm_d = combined_data$Evaporation.Rate..mm.hr. * 24
+  Pan_Eva_mm_d = combined_data$Evaporation_Rate_mm_hr * 24
 )
 
 # Write the data frame to a CSV file
-write.csv(output_table, file.path(base_path,"output/eva_estimate_Penman_RStudio.csv"), row.names = FALSE)
+write.csv(output_table, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_estimate_Penman_RStudio.csv", row.names = FALSE)
