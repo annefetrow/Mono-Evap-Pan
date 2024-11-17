@@ -2,15 +2,25 @@
 
 ---
 
-This directory should holds all of our raw data files, no matter the format (e.g. Excel, CSV, image data, etc.). Yolanda currently puts them all under the data folder but u feel free to use subfolders to structure your data further if you have a lot of differeny kinds. All data files should be treated as **read only**.
+This directory should holds all of our raw data files, no matter the format (e.g. Excel, CSV, image data, etc.). All data files should be treated as **read only**.
 
 If you want to prevent any particular data file or data subfolder from being automatically added to GitHub, simply list their names in the `.gitignore` file that is in this directory.
 
-The data files included are as follows:
-
 **Note: Current Code are designed uder a specific data format. So if your code is not running please check the data format first.**
 
-**Note2: The code is designed to read data in csv format, but not xlsx format**
+## Raw data- Evaporation Pan
+
+The folder stores all the raw data from the evaporation pan and on-site relevant gauges, downloaded monthly by Maureen. Note that the common data renewal place is [Google Drive](https://drive.google.com/drive/folders/1xlh3-rdhs1PhuJu4rxLKHyPeRMTOjEsy?usp=drive_link) and it's further downloaded to GitHub for data processing purposes. Therefore, please make sure you download the latest Google folder for complete data set.
+
+### Air Temp
+
+Stores the temperature of air above the evaporation pan. The file data type should be `.csv` and it can be converted manually from `.xlsx`.
+
+| Data Structure |                      |                          |
+|---------------------------|----------------------|--------------------------|
+| #                         | Date Time, GMT-07:00 | EV pan Level, Millimeter |
+| 1                         | MM/DD/YY HH:MM       | num                      |
+| 2                         | MM/DD/YY HH:MM       | num                      |
 
 ## Evaporation Pan Water Level
 
