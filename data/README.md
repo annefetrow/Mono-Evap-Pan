@@ -10,17 +10,7 @@ If you want to prevent any particular data file or data subfolder from being aut
 
 ## Raw data- Evaporation Pan
 
-The folder stores all the raw data from the evaporation pan and on-site relevant gauges, downloaded monthly by Maureen. Note that the common data renewal place is [Google Drive](https://drive.google.com/drive/folders/1xlh3-rdhs1PhuJu4rxLKHyPeRMTOjEsy?usp=drive_link) and it's further downloaded to GitHub for data processing purposes. Therefore, please make sure you download the latest Google folder for complete data set.
-
-### Air Temp
-
-Stores the temperature of air above the evaporation pan. The file data type should be `.csv` and it can be converted manually from `.xlsx`.
-
-| Data Structure |                      |                          |
-|---------------------------|----------------------|--------------------------|
-| #                         | Date Time, GMT-07:00 | EV pan Level, Millimeter |
-| 1                         | MM/DD/YY HH:MM       | num                      |
-| 2                         | MM/DD/YY HH:MM       | num                      |
+See the other README `README_Raw data-Evaporation Pan.md` for further folder information.
 
 ## Evaporation Pan Water Level
 
