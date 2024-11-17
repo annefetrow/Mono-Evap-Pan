@@ -1,3 +1,6 @@
+# Things to input:
+# For each 
+
 # Initialization
 cat("\014")
 rm(list = ls())
@@ -148,7 +151,7 @@ theme_set(theme_minimal(base_size = 14))
 # Water Level
 # Path to the folder containing the CSV files for water level
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Pan Water Level'
-all_data <- read_and_combine_csv(folderPath, 5, 7, 3)
+all_data <- read_and_combine_csv(folderPath, 5, 8, 3)
 
 # Plot water level over time
 ggplot(all_data, aes(x = timestamp, y = value)) +
@@ -184,8 +187,8 @@ calculate_and_export_daily_avg <- function(values, date_times, output_path, file
 }
 
 # Calculate daily evaporation rate and export
-output_folder <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024'
-calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output_folder, '2024_daily_average_evaporation_rates.csv', 'Evaporation_Rate_mm_hr')
+output_folder <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output'
+calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output_folder, 'daily_average_evaporation_rates.csv', 'Evaporation_Rate_mm_hr')
 
 # Water Temperature
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Water Temp'
@@ -196,10 +199,10 @@ ggplot(water_temp_data, aes(x = timestamp, y = value)) +
   labs(x = 'Date', y = 'Temperature (C)', title = 'Water Temperature over Time') +
   theme_minimal()
 
-calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, '2024_daily_average_water_temperature.csv', 'WaterTemp_C')
+calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, 'daily_average_water_temperature.csv', 'WaterTemp_C')
 
 # Air Temperature
-folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp'
+folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp and RH'
 air_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
 ggplot(air_temp_data, aes(x = timestamp, y = value)) +
@@ -207,10 +210,10 @@ ggplot(air_temp_data, aes(x = timestamp, y = value)) +
   labs(x = 'Date', y = 'Temperature (C)', title = 'Air Temperature over Time') +
   theme_minimal()
 
-calculate_and_export_daily_avg(air_temp_data$value, air_temp_data$timestamp, output_folder, '2024_daily_average_air_temperature.csv', 'AirTemp_C')
+calculate_and_export_daily_avg(air_temp_data$value, air_temp_data$timestamp, output_folder, 'daily_average_air_temperature.csv', 'AirTemp_C')
 
 # Relative Humidity
-folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/RH'
+folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp and RH'
 rh_data <- read_and_combine_csv(folderPath, 1, 2, 4)
 
 ggplot(rh_data, aes(x = timestamp, y = value)) +
@@ -218,7 +221,7 @@ ggplot(rh_data, aes(x = timestamp, y = value)) +
   labs(x = 'Date', y = 'RH (%)', title = 'Relative Humidity over Time') +
   theme_minimal()
 
-calculate_and_export_daily_avg(rh_data$value, rh_data$timestamp, output_folder, '2024_daily_average_RH.csv', 'RH_Percent')
+calculate_and_export_daily_avg(rh_data$value, rh_data$timestamp, output_folder, 'daily_average_RH.csv', 'RH_Percent')
 
 plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
 
@@ -361,7 +364,7 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
       theme_minimal() +
       theme(
         plot.title = element_text(hjust = 0.5),
-        legend.position = "top",  # Display the legend at the top
+        legend.position = if (i == 1) "top" else "none",  # Display the legend at the top
         axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels for better readability
       )
     
