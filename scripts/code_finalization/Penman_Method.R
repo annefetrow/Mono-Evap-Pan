@@ -23,7 +23,7 @@ globalVars$Cp_a <- 1.005e-3    # Specific heat of air in MJ/(kg * K)
 globalVars$LAMBDA <- 2.45      # Latent heat in MJ/kg
 
 # Define folder path and date range
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024"
+folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output"
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
 
@@ -353,7 +353,6 @@ Ea_pan <- combined_data$Evaporation_Rate_mm_hr * globalVars$RHO_W * globalVars$L
 E_pan <- penman_calc(delta, gamma, Rn * 0.0864, Ea_pan) * 1000  # mm/day
 E_theo <- penman_calc(delta, gamma, Rn * 0.0864, Ea_theo) * 1000  # mm/day
 
-# Plotting
 ggplot(data = combined_data, aes(x = Date)) +
   geom_line(aes(y = E_pan, color = "Lake, from Pan Eva")) +
   geom_line(aes(y = E_theo, color = "Lake, from Theoretical Eva")) +
@@ -363,7 +362,10 @@ ggplot(data = combined_data, aes(x = Date)) +
                                 "Lake, from Theoretical Eva" = "red",
                                 "Pan Eva" = "green")) +
   theme_minimal() +
-  theme(legend.title = element_blank())
+  theme(legend.title = element_blank(),
+        legend.position = "top",       # Move legend to the top
+        legend.direction = "horizontal")  # Arrange legend items horizontally
+
 
 # Calculate Conversion Coefficients
 C_pan <- E_pan / (combined_data$Evaporation_Rate_mm_hr * 24)
@@ -373,15 +375,17 @@ C_theo <- E_theo / (combined_data$Evaporation_Rate_mm_hr * 24)
 combined_data$C_pan <- C_pan
 combined_data$C_theo <- C_theo
 
-# Plotting Conversion Coefficients
 ggplot(data = combined_data, aes(x = Date)) +
   geom_line(aes(y = C_pan, color = "From Pan Eva")) +
   geom_line(aes(y = C_theo, color = "From Theoretical Eva")) +
   labs(y = "Conversion Coefficient", x = "Date") +
   scale_color_manual(values = c("From Pan Eva" = "blue", "From Theoretical Eva" = "red")) +
   theme_minimal() +
-  theme(legend.title = element_blank()) +
+  theme(legend.title = element_blank(),
+        legend.position = "top",       # Move legend to the top
+        legend.direction = "horizontal") +  # Arrange legend items horizontally
   labs(color = "Evaporation Source")  # Adds legend label
+
 
 # Create a data frame with the calculated data
 output_table <- data.frame(

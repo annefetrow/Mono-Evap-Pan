@@ -13,9 +13,10 @@ library(lubridate)
 library(ggplot2)
 library(vroom)
 library(gridExtra)
+library(readxl)
 
 # Define folder path and date range
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/2024"
+folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output"
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
 

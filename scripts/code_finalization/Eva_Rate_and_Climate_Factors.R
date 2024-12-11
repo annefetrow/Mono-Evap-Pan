@@ -13,6 +13,11 @@ library(lubridate)
 library(ggplot2)
 library(vroom)
 library(gridExtra)
+library(grid)
+library(cowplot)
+
+# Define a global base directory, please change it when download the code to your personal desktop
+global_save_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
 
 # Function to parse datetime flexibly for mdy and ymd formats
 parse_datetime_flexible <- function(ori_datetime_str) {
@@ -145,6 +150,43 @@ eva_rate_cal <- function(h, date_time) {
   return(list(eva_rate = eva_rate, eva_date_time = eva_date_time))
 }
 
+export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
+  
+  # Adjust height only if it's a combined plot and there are multiple rows
+  if (combined && num_rows > 1) {
+    # Add extra space for the x-axis labels on the first plot (top plot)
+    extra_space_for_labels <- 300  # Adjust this value as needed
+  } else {
+    extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
+  }
+  
+  # Calculate the total height
+  height <- base_height * num_rows + extra_space_for_labels
+  
+  # Create the directory if it doesn't exist
+  dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Construct the full file path
+  file_path <- file.path(save_dir, file_name)
+  
+  # Open a PNG device with calculated height
+  png(filename = file_path, width = width, height = height, res = res)
+  
+  # Check if the input is a single plot or a grid object
+  if (inherits(plot, "ggplot")) {
+    # For a single ggplot, use print
+    print(plot)
+  } else {
+    # For grid-arranged objects, use grid.draw
+    grid.draw(plot)
+  }
+  
+  # Close the device
+  dev.off()
+  
+  cat("Plot exported to:", file_path, "\n")
+}
+
 # Set default line width globally for plots
 theme_set(theme_minimal(base_size = 14))
 
@@ -168,13 +210,15 @@ eva_rate <- list(
 eva_rate_avg <- mean(eva_rate$eva_rate, na.rm = TRUE) # exclude outliers
 
 # Plot evaporation rate over time
-ggplot() +
+p <- ggplot() +
   geom_bar(aes(x = eva_rate$eva_date_time, y = eva_rate$eva_rate), stat = "identity", fill = "blue") +
   geom_hline(yintercept = eva_rate_avg, linetype = "dashed", color = "blue") +
   annotate("text", x = max(eva_rate$eva_date_time) - days(1), y = max(eva_rate$eva_rate) + 0.2,
            label = paste("Average:", round(eva_rate_avg, 2), "mm/hr"), hjust = 1) +
   labs(x = 'Date', y = 'Eva Rate (mm/hr)', title = 'Evaporation Rate Over Time') +
   theme_minimal()
+
+export_plot_to_png(p, file_name = "Evaporation_Rate_Over_Time.png", num_rows = 1, combined = FALSE)
 
 # Function to calculate daily averages and export to CSV
 calculate_and_export_daily_avg <- function(values, date_times, output_path, file_name, col_name) {
@@ -194,60 +238,72 @@ calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Water Temp'
 water_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
-ggplot(water_temp_data, aes(x = timestamp, y = value)) +
+p <- ggplot(water_temp_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'red') +
   labs(x = 'Date', y = 'Temperature (C)', title = 'Water Temperature over Time') +
   theme_minimal()
 
 calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, 'daily_average_water_temperature.csv', 'WaterTemp_C')
 
+export_plot_to_png(p, file_name = "Water_Temperature_over_Time.png", num_rows = 1, combined = FALSE)
+
 # Air Temperature
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp and RH'
 air_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
-ggplot(air_temp_data, aes(x = timestamp, y = value)) +
+p <- ggplot(air_temp_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'green') +
   labs(x = 'Date', y = 'Temperature (C)', title = 'Air Temperature over Time') +
   theme_minimal()
 
 calculate_and_export_daily_avg(air_temp_data$value, air_temp_data$timestamp, output_folder, 'daily_average_air_temperature.csv', 'AirTemp_C')
 
+export_plot_to_png(p, file_name = "Air_Temperature_over_Time.png")
+
 # Relative Humidity
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Air Temp and RH'
 rh_data <- read_and_combine_csv(folderPath, 1, 2, 4)
 
-ggplot(rh_data, aes(x = timestamp, y = value)) +
+p <- ggplot(rh_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'black') +
   labs(x = 'Date', y = 'RH (%)', title = 'Relative Humidity over Time') +
   theme_minimal()
 
 calculate_and_export_daily_avg(rh_data$value, rh_data$timestamp, output_folder, 'daily_average_RH.csv', 'RH_Percent')
 
-plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
+export_plot_to_png(p, file_name = "Relative_Humidity_Over_Time.png", num_rows = 1, combined = FALSE)
 
+
+plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
+  
   # Convert date-time columns to Date format if they are not already
   T_water_all_date <- as.Date(T_water_all_date_time)
   T_air_all_date <- as.Date(T_air_all_date_time)
   RH_all_date <- as.Date(RH_all_date_time)
-
+  
   # Get unique months and years from the datetime arrays
   months <- format(T_water_all_date, "%m")
   years <- format(T_water_all_date, "%Y")
   uniqueMonths <- unique(data.frame(year = years, month = months))
-
-  # List to hold plots
+  
+  # Create an empty list to store the individual plots
   plots <- list()
-
-  # Loop through each unique month and year
+  
+  # Define color mapping for the variables
+  color_mapping <- c("Water Temp" = "red", "Air Temp" = "green", "RH" = "black")
+  
+  # Loop through each month (or each iteration in your data)
   for (i in 1:nrow(uniqueMonths)) {
+    
+    # Get the current month and year for the plot title
     currentMonth <- uniqueMonths$month[i]
     currentYear <- uniqueMonths$year[i]
-
+    
     # Filter data for the current month and year
     idxWater <- which(format(T_water_all_date, "%Y-%m") == paste(currentYear, currentMonth, sep = "-"))
     idxAir <- which(format(T_air_all_date, "%Y-%m") == paste(currentYear, currentMonth, sep = "-"))
     idxRH <- which(format(RH_all_date, "%Y-%m") == paste(currentYear, currentMonth, sep = "-"))
-
+    
     # Create a data frame for plotting
     plot_data <- data.frame(
       Date_time = c(T_water_all_date_time[idxWater], T_air_all_date_time[idxAir], RH_all_date_time[idxRH]),
@@ -257,13 +313,11 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
             times = c(length(idxWater), length(idxAir), length(idxRH)))
       )
     )
-
+    
     # Make sure the format is correct for Date_time
     plot_data$Date_time <- as.POSIXct(plot_data$Date_time, format = "%Y-%m-%d %H:%M:%S")
-
-    # Define your color mapping
-    color_mapping <- c("Water Temp" = "red", "Air Temp" = "green", "RH" = "black")
-
+    
+    # Create the individual plot
     p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable)) +
       geom_line() +
       scale_y_continuous(
@@ -275,21 +329,32 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
       theme_minimal() +
       theme(
         plot.title = element_text(hjust = 0.5),
-        legend.position = if (i == 1) "top" else "none"
+        legend.position = "none",  # Hide the legend for individual plots
+        axis.title.x = if (i == nrow(uniqueMonths)) element_text() else element_blank()  # Set x-axis title conditionally
       )
-
-    # Add plot to the list
+    
+    # Add the plot to the list of plots
     plots[[i]] <- p
   }
-
-  # Arrange all plots in a single figure with multiple rows
-  grid.arrange(grobs = plots, ncol = 1, top = "Water Temperature, Air Temperature, and Relative Humidity by Month")
+  
+  # Combine all plots in a single layout (arranged vertically)
+  combined_plot <- marrangeGrob(grobs = plots, ncol = 1, nrow = nrow(uniqueMonths), top = NULL)
+  
+  # Export the combined plot with dynamic height
+  export_plot_to_png(
+    combined_plot,
+    file_name = "Water_Temperature_Air_Temperature_RH_by_Month.png",
+    num_rows = nrow(uniqueMonths), # Pass the number of months
+    combined = TRUE  # Indicate this is a combined plot
+  )
 }
+
+
 
 # Plot Water Temperature, Air Temperature, and Relative Humidity
 plotByMonth(water_temp_data$timestamp, water_temp_data$value, air_temp_data$timestamp, air_temp_data$value, rh_data$timestamp, rh_data$value)
 
-# Plot function for monthly evaporation rate with air and water temperatures
+
 plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   
   # Trim the data to the same date range using the helper function
@@ -341,6 +406,9 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
     # Define the color mapping for the legend
     color_mapping <- c("Water Temp" = "red", "Air Temp" = "green")
     
+    # Define the x-axis title element based on the plot index
+    x_axis_title <- if (i == num_months) element_text() else element_blank()
+    
     # Plot for the current month
     p <- ggplot() +
       # Bar plot for Evaporation Rate
@@ -364,17 +432,25 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
       theme_minimal() +
       theme(
         plot.title = element_text(hjust = 0.5),
-        legend.position = if (i == 1) "top" else "none",  # Display the legend at the top
-        axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels for better readability
+        legend.position = "none",  # Hide the legend for individual plots
+        axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for better readability
+        axis.title.x = x_axis_title  # Use the conditionally set x-axis title
       )
     
-    # Store plot in list
-    plots[[i]] <- p
+    # Store the plot in the list
+    plots[[i]] <- ggplotGrob(p)  # Convert ggplot object to grob
   }
   
-  # Arrange all plots in a single figure
-  grid.arrange(grobs = plots, ncol = 1)
+  # Combine all plots in a single layout (arranged vertically)
+  combined_plot <- marrangeGrob(grobs = plots, ncol = 1, nrow = num_months, top = NULL)
+  
+  # Export the combined plot with the legend
+  export_plot_to_png(
+    combined_plot,
+    file_name = "Water_Temperature_Air_Temperature_RH_by_Month.png",
+    num_rows = num_months,  # Use num_months here
+    combined = TRUE  # Indicate this is a combined plot
+  )
 }
 
 plotMonthlyEvapWaterAir(eva_rate, water_temp_data, air_temp_data)
-
