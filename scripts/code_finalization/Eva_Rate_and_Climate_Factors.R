@@ -158,6 +158,7 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
     extra_space_for_labels <- 300  # Adjust this value as needed
   } else {
     extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
+    base_height = 400
   }
   
   # Calculate the total height
@@ -240,7 +241,7 @@ water_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
 p <- ggplot(water_temp_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'red') +
-  labs(x = 'Date', y = 'Temperature (C)', title = 'Water Temperature over Time') +
+  labs(x = 'Date', y = 'Temperature (°C)', title = 'Water Temperature over Time') +
   theme_minimal()
 
 calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, 'daily_average_water_temperature.csv', 'WaterTemp_C')
@@ -350,10 +351,8 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
 }
 
 
-
 # Plot Water Temperature, Air Temperature, and Relative Humidity
 plotByMonth(water_temp_data$timestamp, water_temp_data$value, air_temp_data$timestamp, air_temp_data$value, rh_data$timestamp, rh_data$value)
-
 
 plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   
@@ -374,11 +373,20 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   unique_months <- unique(month(trimmed_eva_time))
   num_months <- length(unique_months)
   
+  # Get unique months and years from the datetime arrays
+  months <- format(as.Date(trimmed_eva_time), "%m")
+  years <- format(as.Date(trimmed_eva_time), "%Y")
+  uniqueMonths <- unique(data.frame(year = years, month = months))
+  
   # List to store ggplot objects for each subplot
   plots <- vector("list", num_months)
   
   # Loop over each month to create subplots
   for (i in 1:num_months) { 
+    # Get the current month and year for the plot title
+    currentMonth <- uniqueMonths$month[i]
+    currentYear <- uniqueMonths$year[i]
+    
     # Filter data for the current month
     month_idx <- month(trimmed_eva_time) == unique_months[i]
     month_data <- data.frame(
@@ -419,11 +427,11 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
       geom_line(data = air_data, aes(x = air_time, y = air_value, color = "Air Temp"), linetype = "dashed") +
       # Customize the y-axis labels and secondary axis for Water Temp and Air Temp
       scale_y_continuous(
-        name = "Evaporation Rate (mm/hr)",
+        name = "Eva Rate (mm/hr)",
         sec.axis = sec_axis(~ ., name = "Temperature (°C)")
       ) +
       # Set title and x-axis label
-      labs(title = paste("Evaporation Rate, Water Temp, and Air Temp - Month", unique_months[i]),
+      labs(title = paste("Month:", currentYear, "-", unique_months[i]),
            x = "Date") +
       # Apply color mappings to the legend
       scale_color_manual(values = color_mapping) +
@@ -433,7 +441,7 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
       theme(
         plot.title = element_text(hjust = 0.5),
         legend.position = "none",  # Hide the legend for individual plots
-        axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for better readability
+        axis.text.x = element_text(angle = 0, hjust = 1),  # Rotate x-axis labels for better readability
         axis.title.x = x_axis_title  # Use the conditionally set x-axis title
       )
     
@@ -447,7 +455,7 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   # Export the combined plot with the legend
   export_plot_to_png(
     combined_plot,
-    file_name = "Water_Temperature_Air_Temperature_RH_by_Month.png",
+    file_name = "Water_Air_Temperature_Evaporation_Rate_by_Month.png",
     num_rows = num_months,  # Use num_months here
     combined = TRUE  # Indicate this is a combined plot
   )

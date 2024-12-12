@@ -12,6 +12,9 @@ library(vroom)
 library(gridExtra)
 library(readxl)
 
+# Define a global base directory, please change it when download the code to your personal desktop
+global_save_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
+
 # Define global constants in an environment
 globalVars <- new.env()
 globalVars$RHO_W <- 1000       # Density of water in kg/m^3
@@ -245,6 +248,44 @@ read_and_average_wind_speed <- function(file_path) {
   return(daily_wind_speed_data)
 }
 
+export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
+  
+  # Adjust height only if it's a combined plot and there are multiple rows
+  if (combined && num_rows > 1) {
+    # Add extra space for the x-axis labels on the first plot (top plot)
+    extra_space_for_labels <- 300  # Adjust this value as needed
+  } else {
+    extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
+    base_height = 400
+  }
+  
+  # Calculate the total height
+  height <- base_height * num_rows + extra_space_for_labels
+  
+  # Create the directory if it doesn't exist
+  dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Construct the full file path
+  file_path <- file.path(save_dir, file_name)
+  
+  # Open a PNG device with calculated height
+  png(filename = file_path, width = width, height = height, res = res)
+  
+  # Check if the input is a single plot or a grid object
+  if (inherits(plot, "ggplot")) {
+    # For a single ggplot, use print
+    print(plot)
+  } else {
+    # For grid-arranged objects, use grid.draw
+    grid.draw(plot)
+  }
+  
+  # Close the device
+  dev.off()
+  
+  cat("Plot exported to:", file_path, "\n")
+}
+
 # Example usage with wind speed data
 file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Wind Speed m_s.xlsx"
 
@@ -353,7 +394,7 @@ Ea_pan <- combined_data$Evaporation_Rate_mm_hr * globalVars$RHO_W * globalVars$L
 E_pan <- penman_calc(delta, gamma, Rn * 0.0864, Ea_pan) * 1000  # mm/day
 E_theo <- penman_calc(delta, gamma, Rn * 0.0864, Ea_theo) * 1000  # mm/day
 
-ggplot(data = combined_data, aes(x = Date)) +
+p <- ggplot(data = combined_data, aes(x = Date)) +
   geom_line(aes(y = E_pan, color = "Lake, from Pan Eva")) +
   geom_line(aes(y = E_theo, color = "Lake, from Theoretical Eva")) +
   geom_line(aes(y = Evaporation_Rate_mm_hr * 24, color = "Pan Eva")) +
@@ -366,6 +407,8 @@ ggplot(data = combined_data, aes(x = Date)) +
         legend.position = "top",       # Move legend to the top
         legend.direction = "horizontal")  # Arrange legend items horizontally
 
+export_plot_to_png(p, file_name = "Penman_Evaporation_Rate.png", num_rows = 1, combined = FALSE)
+
 
 # Calculate Conversion Coefficients
 C_pan <- E_pan / (combined_data$Evaporation_Rate_mm_hr * 24)
@@ -375,7 +418,7 @@ C_theo <- E_theo / (combined_data$Evaporation_Rate_mm_hr * 24)
 combined_data$C_pan <- C_pan
 combined_data$C_theo <- C_theo
 
-ggplot(data = combined_data, aes(x = Date)) +
+p <- ggplot(data = combined_data, aes(x = Date)) +
   geom_line(aes(y = C_pan, color = "From Pan Eva")) +
   geom_line(aes(y = C_theo, color = "From Theoretical Eva")) +
   labs(y = "Conversion Coefficient", x = "Date") +
@@ -385,6 +428,15 @@ ggplot(data = combined_data, aes(x = Date)) +
         legend.position = "top",       # Move legend to the top
         legend.direction = "horizontal") +  # Arrange legend items horizontally
   labs(color = "Evaporation Source")  # Adds legend label
+
+export_plot_to_png(p, file_name = "Penman_Coefficient.png", num_rows = 1, combined = FALSE)
+
+# Create a data frame with calculated coefficient
+output_coeff <- data.frame(
+  Date = combined_data$Date,
+  Theoretical_Eva = C_theo,
+  Pan_Eva = C_pan
+)
 
 
 # Create a data frame with the calculated data
@@ -396,4 +448,5 @@ output_table <- data.frame(
 )
 
 # Write the data frame to a CSV file
+write.csv(output_coeff, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_coeff_Penman_RStudio.csv", row.names = FALSE)
 write.csv(output_table, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_estimate_Penman_RStudio.csv", row.names = FALSE)

@@ -14,6 +14,10 @@ library(ggplot2)
 library(vroom)
 library(gridExtra)
 library(readxl)
+library(tidyr)
+
+# Define a global base directory, please change it when download the code to your personal desktop
+global_save_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
 
 # Define folder path and date range
 folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output"
@@ -143,6 +147,44 @@ read_and_average_air_temperature <- function(file_path) {
   return(daily_air_temp_data)
 }
 
+export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
+  
+  # Adjust height only if it's a combined plot and there are multiple rows
+  if (combined && num_rows > 1) {
+    # Add extra space for the x-axis labels on the first plot (top plot)
+    extra_space_for_labels <- 300  # Adjust this value as needed
+  } else {
+    extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
+    base_height = 400
+  }
+  
+  # Calculate the total height
+  height <- base_height * num_rows + extra_space_for_labels
+  
+  # Create the directory if it doesn't exist
+  dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Construct the full file path
+  file_path <- file.path(save_dir, file_name)
+  
+  # Open a PNG device with calculated height
+  png(filename = file_path, width = width, height = height, res = res)
+  
+  # Check if the input is a single plot or a grid object
+  if (inherits(plot, "ggplot")) {
+    # For a single ggplot, use print
+    print(plot)
+  } else {
+    # For grid-arranged objects, use grid.draw
+    grid.draw(plot)
+  }
+  
+  # Close the device
+  dev.off()
+  
+  cat("Plot exported to:", file_path, "\n")
+}
+
 # Load air temperature data
 file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Air Temperature C.xlsx"
 air_temp_data <- read_and_average_air_temperature(file_path)
@@ -237,6 +279,44 @@ read_and_average_wind_speed <- function(file_path) {
     ungroup()
   
   return(daily_wind_speed_data)
+}
+
+export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
+  
+  # Adjust height only if it's a combined plot and there are multiple rows
+  if (combined && num_rows > 1) {
+    # Add extra space for the x-axis labels on the first plot (top plot)
+    extra_space_for_labels <- 300  # Adjust this value as needed
+  } else {
+    extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
+    base_height = 400
+  }
+  
+  # Calculate the total height
+  height <- base_height * num_rows + extra_space_for_labels
+  
+  # Create the directory if it doesn't exist
+  dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Construct the full file path
+  file_path <- file.path(save_dir, file_name)
+  
+  # Open a PNG device with calculated height
+  png(filename = file_path, width = width, height = height, res = res)
+  
+  # Check if the input is a single plot or a grid object
+  if (inherits(plot, "ggplot")) {
+    # For a single ggplot, use print
+    print(plot)
+  } else {
+    # For grid-arranged objects, use grid.draw
+    grid.draw(plot)
+  }
+  
+  # Close the device
+  dev.off()
+  
+  cat("Plot exported to:", file_path, "\n")
 }
 
 # Example usage with wind speed data
@@ -353,28 +433,97 @@ e_l_4_kPa <- vapor_pressure_height(e_l_0_kPa, combined_data$Lake_Air_Temperature
 # Calculate Lake Evaporation
 E_lake <- ((e_l_kPa - e_l_4_kPa) / (e_p_kPa - e_p_4_kPa)) * combined_data$Evaporation_Rate_mm_hr
 coefficient <- ((e_l_kPa - e_l_4_kPa) / (e_p_kPa - e_p_4_kPa))
-# Plot Conversion Coefficient
-plot(combined_data$Date, coefficient, type = "l", 
-     ylab = "Conversion Coefficient", xlab = "Date",
-     ylim = range(coefficient, na.rm = TRUE))  # Adjust y-axis limits
 
-# Plot Vapor Pressures
-plot(combined_data$Date, e_p_4_kPa, type = "l", col = "blue", 
-     ylab = "Vapor Pressure (kPa)", xlab = "Date",
-     ylim = range(c(e_p_4_kPa, e_p_kPa, e_l_kPa, e_l_4_kPa), na.rm = TRUE))  # Adjust y-axis limits
-lines(combined_data$Date, e_p_kPa, col = "red")
-lines(combined_data$Date, e_l_kPa, col = "green")
-lines(combined_data$Date, e_l_4_kPa, col = "purple")
-legend("topright", legend = c("e_{p,4}", "e_p", "e_l", "e_{l,4}"), 
-       col = c("blue", "red", "green", "purple"), lty = 1)
+# Create a data frame for ggplot
+coefficient_data <- data.frame(
+  Date = combined_data$Date,
+  Coefficient = coefficient
+)
 
-# Plot Temperatures
-plot(combined_data$Date, combined_data$Lake_Temperature_C, type = "l", col = "blue", 
-     ylab = "Temperature (C)", xlab = "Date",
-     ylim = range(c(combined_data$Lake_Temperature_C, combined_data$Daily_Avg_WaterTempC, 
-                    combined_data$Daily_Avg_AirTempC, combined_data$Lake_Air_Temperature_C), na.rm = TRUE))  # Adjust y-axis limits
-lines(combined_data$Date, combined_data$WaterTemp_C, col = "red")
-lines(combined_data$Date, combined_data$AirTemp_C, col = "green")
-lines(combined_data$Date, combined_data$Lake_Air_Temperature_C, col = "purple")
-legend("topright", legend = c("Lake Water", "Pan Water", "Pan Air", "Lake Air"), 
-       col = c("blue", "red", "green", "purple"), lty = 1)
+# Plot using ggplot
+p <- ggplot(coefficient_data, aes(x = Date, y = Coefficient)) +
+  geom_line(color = "blue") +
+  labs(title = "Conversion Coefficient Over Time",
+       x = "Date",
+       y = "Conversion Coefficient") +
+  theme_minimal()
+
+export_plot_to_png(p, file_name = "Webb_Coefficient.png", num_rows = 1, combined = FALSE)
+
+# Create a data frame for plotting
+vapor_pressure_data <- data.frame(
+  Date = combined_data$Date,  # Assuming 'Date' is in combined_data
+  e_p_4_kPa = e_p_4_kPa,
+  e_p_kPa = e_p_kPa,
+  e_l_kPa = e_l_kPa,
+  e_l_4_kPa = e_l_4_kPa
+)
+
+# Pivot to long format for ggplot
+vapor_pressure_long <- vapor_pressure_data %>%
+  pivot_longer(cols = c(e_p_4_kPa, e_p_kPa, e_l_kPa, e_l_4_kPa), 
+               names_to = "VaporPressure", 
+               values_to = "Value")
+
+# Ensure VaporPressure column is a factor with consistent levels
+vapor_pressure_long$VaporPressure <- factor(
+  vapor_pressure_long$VaporPressure, 
+  levels = c("e_p_4_kPa", "e_p_kPa", "e_l_kPa", "e_l_4_kPa") # Matches scale_color_manual
+)
+
+# Create the plot
+p <- ggplot(vapor_pressure_long, aes(x = Date, y = Value, color = VaporPressure)) +
+  geom_line() +
+  labs(title = "Vapor Pressures Over Time",
+       x = "Date",
+       y = "Vapor Pressure (kPa)") +
+  scale_color_manual(values = c("e_p_4_kPa" = "blue", 
+                                "e_p_kPa" = "red", 
+                                "e_l_kPa" = "green", 
+                                "e_l_4_kPa" = "purple"),
+                     labels = c("Pan Air, 4m Above", "Pan Water", "Lake Water", "Lake Air, 4m Above")) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position = "top")
+
+export_plot_to_png(p, file_name = "Webb_Vapor_Pressure.png", num_rows = 1, combined = FALSE)
+
+# Pivot the temperature data to long format
+temperature_data <- combined_data %>%
+  select(Date, Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C) %>%
+  pivot_longer(cols = c(Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C), 
+               names_to = "TemperatureType", 
+               values_to = "Temperature")
+# Pivot the temperature data to long format
+temperature_data <- combined_data %>%
+  select(Date, Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C) %>%
+  pivot_longer(cols = c(Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C), 
+               names_to = "TemperatureType", 
+               values_to = "Temperature")
+
+# Set the order for the legend using factor levels
+temperature_data$TemperatureType <- factor(
+  temperature_data$TemperatureType, 
+  levels = c("AirTemp_C", "WaterTemp_C", "Lake_Temperature_C", "Lake_Air_Temperature_C") # Desired order
+)
+
+# Create the ggplot
+p <- ggplot(temperature_data, aes(x = Date, y = Temperature, color = TemperatureType)) +
+  geom_line() +
+  labs(title = "Temperature Over Time",
+       x = "Date",
+       y = "Temperature (°C)") +
+  scale_color_manual(
+    values = c("AirTemp_C" = "blue", 
+               "WaterTemp_C" = "red", 
+               "Lake_Temperature_C" = "green", 
+               "Lake_Air_Temperature_C" = "purple"),
+    labels = c("Pan Air, 4m Above", "Pan Water", "Lake Water", "Lake Air, 4m Above")
+  ) +
+  theme_minimal() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "top"
+  )
+
+export_plot_to_png(p, file_name = "Webb_Temperature.png", num_rows = 1, combined = FALSE)
