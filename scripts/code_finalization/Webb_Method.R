@@ -527,3 +527,12 @@ p <- ggplot(temperature_data, aes(x = Date, y = Temperature, color = Temperature
   )
 
 export_plot_to_png(p, file_name = "Webb_Temperature.png", num_rows = 1, combined = FALSE)
+
+# Create a data frame with calculated coefficient
+output_coeff <- data.frame(
+  Date = coefficient_data$Date,
+  Coeff = coefficient_data$Coefficient
+)
+
+# Write the data frame to a CSV file
+write.csv(output_coeff, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_coeff_Webb_RStudio.csv", row.names = FALSE)

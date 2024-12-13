@@ -196,11 +196,34 @@ theme_set(theme_minimal(base_size = 14))
 folderPath <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/Raw data – Evaporation Pan/Pan Water Level'
 all_data <- read_and_combine_csv(folderPath, 5, 8, 3)
 
+# Precipitation
+file_path <- 'C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Precipitation_CQ251.csv'
+
+# Read the CSV file
+# Ensure column names match the expected: "date" and "(Modeled) Non-Snow Precipitation (mm of water)"
+precipitation_data <- read_csv(file_path, col_types = cols(
+  `Date` = col_datetime(format = "%m/%d/%Y %H:%M"),  # Adjust format to match your data
+  `(Modeled) Non-Snow Precipitation (mm of water)` = col_double()
+))
+
+# Rename columns for easier use
+precipitation_data <- precipitation_data %>% 
+  rename(
+    date = `Date`,
+    precipitation = `(Modeled) Non-Snow Precipitation (mm of water)`
+  )
+
+# Flip the sign of precipitation values
+precipitation_data <- precipitation_data %>%
+  mutate(precipitation_negative = -precipitation)
+
 # Plot water level over time
-ggplot(all_data, aes(x = timestamp, y = value)) +
+p <- ggplot(all_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'blue') +
   labs(x = 'Date and Time', y = 'Water Level (mm)', title = 'Water Level over Time') +
   theme_minimal()
+
+export_plot_to_png(p, file_name = "Water_Level.png", num_rows = 1, combined = FALSE)
 
 # Evaporation Rate Calculation Function
 eva_rate <- eva_rate_cal(all_data$value, all_data$timestamp)
@@ -210,14 +233,34 @@ eva_rate <- list(
 )
 eva_rate_avg <- mean(eva_rate$eva_rate, na.rm = TRUE) # exclude outliers
 
-# Plot evaporation rate over time
+# Plot evaporation rate and precipitation
+# Get the maximum and minimum values after cleaning
+max_eva <- max(eva_rate$eva_rate, na.rm = TRUE)
+max_precip <- min(precipitation_data$precipitation_negative, na.rm = TRUE)
+
+# Plot evaporation rate and precipitation
 p <- ggplot() +
-  geom_bar(aes(x = eva_rate$eva_date_time, y = eva_rate$eva_rate), stat = "identity", fill = "blue") +
+  # Evaporation rate plot
+  geom_bar(aes(x = eva_rate$eva_date_time, y = eva_rate$eva_rate),
+           stat = "identity", fill = "blue", alpha = 0.7) +
+  # Precipitation plot
+  geom_bar(aes(x = precipitation_data$date, y = precipitation_data$precipitation_negative), 
+           stat = "identity", fill = "red", alpha = 0.7) +
+  # Horizontal line for average evaporation rate
   geom_hline(yintercept = eva_rate_avg, linetype = "dashed", color = "blue") +
-  annotate("text", x = max(eva_rate$eva_date_time) - days(1), y = max(eva_rate$eva_rate) + 0.2,
+  # Adjust annotation position to avoid out-of-range error
+  annotate("text", x = max(eva_rate$eva_date_time) - days(1), 
+           y = max_eva + 0.2,  # Adjusted position based on max evaporation rate
            label = paste("Average:", round(eva_rate_avg, 2), "mm/hr"), hjust = 1) +
-  labs(x = 'Date', y = 'Eva Rate (mm/hr)', title = 'Evaporation Rate Over Time') +
-  theme_minimal()
+  # Labels and theme
+  labs(x = 'Date', 
+       y = 'Rate (mm/hr)', 
+       title = 'Evaporation and Precipitation Rates Over Time') +
+  theme_minimal() +
+  # Set custom y-axis limits
+  scale_y_continuous(limits = c(max_precip, max_eva)) +
+  # Set correct x-axis limits and format
+  scale_x_datetime(limits = c(min(eva_rate$eva_date_time), max(eva_rate$eva_date_time)))
 
 export_plot_to_png(p, file_name = "Evaporation_Rate_Over_Time.png", num_rows = 1, combined = FALSE)
 
