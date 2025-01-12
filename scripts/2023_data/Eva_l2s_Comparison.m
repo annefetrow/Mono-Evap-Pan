@@ -28,7 +28,7 @@ l2s_monthly_avg.Date = datetime(2000, l2s_monthly_avg.Month, 1);
 
 %% Import Penman Method Results
 % Load the new CSV file
-data = readtable('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\eva_estimate_Penman.csv');
+data = readtable('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\eva_estimate_Penman_RStudio.csv');
 
 % Convert the 'Date' column to datetime
 data.Date = datetime(data.Date, 'InputFormat', 'dd-MMM-yyyy');
@@ -56,10 +56,26 @@ monthly_avg.Date = datetime(2000, monthly_avg.Month, 1);
 %% Import Webb Methods Results
 
 % Load the new CSV file
-data = readtable('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\eva_coefficient_Webb.csv');
+data_webb = readtable('C:\Users\24468\Desktop\Research\SEAS-HYDRO\Mono Lake\Mono-Evap-Pan\output\eva_coeff_Webb_RStudio.csv');
 
-% Calculate Monthly Evaporation
-monthly_avg_webb = monthly_avg.mean_pan_eva .* data.mean_coefficient;
+% Convert the date column to datetime format (assuming the first column is the date)
+data_webb.Date = datetime(data_webb.Date, 'InputFormat', 'yyyy-MM-dd');  % Adjust format if needed
+
+% Extract year and month from the Date column
+data_webb.YearMonth = strcat(string(year(data_webb.Date)), '-', string(month(data_webb.Date, 'long')));
+
+% Convert YearMonth to datetime to ensure correct sorting
+data_webb.YearMonth = datetime(data_webb.YearMonth, 'InputFormat', 'yyyy-MMMM');  % Adjust format as necessary
+
+% Sort the table by YearMonth
+data_webb = sortrows(data_webb, 'YearMonth');
+
+% Group the data by Year-Month and calculate the average coefficient for each month
+monthly_avg_webb = varfun(@mean, data_webb, 'InputVariables', 'Coeff', ...
+    'GroupingVariables', 'YearMonth');
+
+% Add the new result as a column in the monthly_avg table
+monthly_avg.mean_lake_from_webb = monthly_avg.mean_pan_eva .* monthly_avg_webb.mean_Coeff;
 
 %% Plot all data
 % Plot the data from l2s
@@ -74,7 +90,7 @@ scatter(monthly_avg.Date, monthly_avg.mean_lake_from_theoretical_eva, 50, 'r', '
 scatter(monthly_avg.Date, monthly_avg.mean_pan_eva, 50, 'g', 'o', 'filled', 'DisplayName', 'Actual Pan Eva');
 
 % Plot the data as scatter plots from Webb
-scatter(monthly_avg.Date, monthly_avg_webb, 50, 'b', 'o', 'filled', 'DisplayName', 'Lake Eva, Webb');
+scatter(monthly_avg.Date, monthly_avg.mean_lake_from_webb, 50, 'b', 'o', 'filled', 'DisplayName', 'Lake Eva, Webb');
 
 % Plot pan evaporation
 scatter(monthly_avg.Date, monthly_avg.mean_lake_from_pan_eva, 50, 'y', 'o', 'filled', 'DisplayName', 'Lake Eva Incorporating Pan Eva, Penman');
