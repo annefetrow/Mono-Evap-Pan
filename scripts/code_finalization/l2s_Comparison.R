@@ -203,7 +203,7 @@ p <- p +
   labs(
     y = 'Evaporation Rate (mm/d)',
     x = 'Month',
-    title = 'Monthly Average Lake Evaporation Rate from Multiple Methods, Plotted along with l2s Model',
+    title = 'Monthly Average Lake Evaporation Rate from Multiple Methods with l2s Model',
     color = 'Legend'
   ) +
   

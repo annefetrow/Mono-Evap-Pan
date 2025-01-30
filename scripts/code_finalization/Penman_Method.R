@@ -13,7 +13,8 @@ library(gridExtra)
 library(readxl)
 
 # Define a global base directory, please change it when download the code to your personal desktop
-global_save_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
+global_work_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
+global_save_dir <- global_save_dir <- file.path(global_work_dir, "plots")
 
 # Define global constants in an environment
 globalVars <- new.env()
@@ -26,7 +27,7 @@ globalVars$Cp_a <- 1.005e-3    # Specific heat of air in MJ/(kg * K)
 globalVars$LAMBDA <- 2.45      # Latent heat in MJ/kg
 
 # Define folder path and date range
-folder_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output"
+folder_path <- file.path(global_work_dir, "output")
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
 
@@ -200,7 +201,7 @@ read_and_average_solar_radiation <- function(file_path) {
 }
 
 # Example usage with solar radiation data
-file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Radiation.xlsx"
+file_path <- file.path(global_work_dir, "data","2024_station_data","Radiation.xlsx")
 
 # Assume combined_data is pre-loaded or defined
 solar_radiation_data <- read_and_average_solar_radiation(file_path)
@@ -287,7 +288,7 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
 }
 
 # Example usage with wind speed data
-file_path <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/2024_station_data/Wind Speed m_s.xlsx"
+file_path <- file.path(global_work_dir, "data","2024_station_data","Wind Speed m_s.xlsx")
 
 # Assume combined_data is pre-loaded or defined
 wind_speed_data <- read_and_average_wind_speed(file_path)
@@ -448,5 +449,5 @@ output_table <- data.frame(
 )
 
 # Write the data frame to a CSV file
-write.csv(output_coeff, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_coeff_Penman_RStudio.csv", row.names = FALSE)
-write.csv(output_table, "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_estimate_Penman_RStudio.csv", row.names = FALSE)
+write.csv(output_coeff, file.path(global_work_dir, "output","eva_coeff_Penman_RStudio.csv"), row.names = FALSE)
+write.csv(output_table, file.path(global_work_dir, "output","eva_estimate_Penman_RStudio.csv"), row.names = FALSE)

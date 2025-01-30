@@ -1,3 +1,19 @@
+---
+title: "Webb"
+author: "Yolanda Ming"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Overview
+
+xxx
+
+# Initialization
+
+Before running the code, I defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialization
 cat("\014")
 rm(list = ls())
@@ -15,16 +31,28 @@ library(vroom)
 library(gridExtra)
 library(readxl)
 library(tidyr)
+```
 
+You will need to change the working directory to your own personal computer's directory when you download it.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define a global base directory, please change it when download the code to your personal desktop
 global_work_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
 global_save_dir <- file.path(global_work_dir, "plots")
+```
 
+You can also define the range of dates you want to compute.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define folder path and date range
 folder_path <- file.path(global_work_dir, "output")
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
+```
 
+## Functions
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 read_and_crop_data <- function(folder_path, start_date, end_date) {
   # This function reads all the .csv files in the specified folder,
   # crops them to the specified date range, and combines them into a single data frame.
@@ -72,25 +100,9 @@ read_and_crop_data <- function(folder_path, start_date, end_date) {
 
 # Call the function to read and crop data
 combined_data <- read_and_crop_data(folder_path, start_date, end_date)
+```
 
-# Assuming combined_data is a data frame with a Date column
-# Initialize the Salinity_g_per_kg column with zeros
-combined_data$Salinity_g_per_kg <- 0  # Set initial values to 0
-
-# Define the date boundaries for setting different salinity values
-start_date <- as.Date("2024-07-20")
-mid_date <- as.Date("2024-08-15")
-
-# Set salinity values based on date conditions
-combined_data$Salinity_g_per_kg <- ifelse(
-  combined_data$Date < start_date, 75,  # Salinity for earlier dates
-  ifelse(
-    combined_data$Date < mid_date, 81,  # Salinity for middle dates
-    85  # Salinity for later dates
-  )
-)
-
-
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 match_table_sizes <- function(table1, table2) {
   # Ensure that the Date columns are in Date format
   table1$Date <- as.Date(table1$Date)
@@ -119,35 +131,9 @@ match_table_sizes <- function(table1, table2) {
   # Return the cropped tables as a list
   return(list(cropped_table1 = cropped_table1, cropped_table2 = cropped_table2))
 }
+```
 
-
-read_and_average_air_temperature <- function(file_path) {
-  # Read the data from the specified Excel file
-  data <- read_excel(file_path)
-  
-  # Extract the date and temperature columns
-  # Assuming the first column contains date and time, and the last column contains temperature
-  date_time <- data[[1]]  # First column
-  lake_air_temperature <- data[[ncol(data)]]  # Last column
-  
-  # Convert date_time to POSIXct format
-  date_time <- ymd_h(date_time)  # Format as "yyyy-MM-dd HH" using lubridate
-  
-  # Filter out NA values from lake air temperature
-  valid_data <- !is.na(lake_air_temperature)
-  date_time <- date_time[valid_data]
-  lake_air_temperature <- lake_air_temperature[valid_data]
-  
-  # Group by date (day only) and calculate daily average temperature
-  daily_air_temp_data <- data.frame(Date = as.Date(date_time), 
-                                    Lake_Air_Temperature_C = lake_air_temperature) %>%
-    group_by(Date) %>%
-    summarize(Lake_Air_Temperature_C = mean(Lake_Air_Temperature_C, na.rm = TRUE)) %>%
-    ungroup()
-  
-  return(daily_air_temp_data)
-}
-
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
   
   # Adjust height only if it's a combined plot and there are multiple rows
@@ -185,7 +171,63 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
   
   cat("Plot exported to:", file_path, "\n")
 }
+```
 
+## Input Salinity
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Assuming combined_data is a data frame with a Date column
+# Initialize the Salinity_g_per_kg column with zeros
+combined_data$Salinity_g_per_kg <- 0  # Set initial values to 0
+
+# Define the date boundaries for setting different salinity values
+start_date <- as.Date("2024-07-20")
+mid_date <- as.Date("2024-08-15")
+
+# Set salinity values based on date conditions
+combined_data$Salinity_g_per_kg <- ifelse(
+  combined_data$Date < start_date, 75,  # Salinity for earlier dates
+  ifelse(
+    combined_data$Date < mid_date, 81,  # Salinity for middle dates
+    85  # Salinity for later dates
+  )
+)
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+read_and_average_air_temperature <- function(file_path) {
+  # Read the data from the specified Excel file
+  data <- read_excel(file_path)
+  
+  # Extract the date and temperature columns
+  # Assuming the first column contains date and time, and the last column contains temperature
+  date_time <- data[[1]]  # First column
+  lake_air_temperature <- data[[ncol(data)]]  # Last column
+  
+  # Convert date_time to POSIXct format
+  date_time <- ymd_h(date_time)  # Format as "yyyy-MM-dd HH" using lubridate
+  
+  # Filter out NA values from lake air temperature
+  valid_data <- !is.na(lake_air_temperature)
+  date_time <- date_time[valid_data]
+  lake_air_temperature <- lake_air_temperature[valid_data]
+  
+  # Group by date (day only) and calculate daily average temperature
+  daily_air_temp_data <- data.frame(Date = as.Date(date_time), 
+                                    Lake_Air_Temperature_C = lake_air_temperature) %>%
+    group_by(Date) %>%
+    summarize(Lake_Air_Temperature_C = mean(Lake_Air_Temperature_C, na.rm = TRUE)) %>%
+    ungroup()
+  
+  return(daily_air_temp_data)
+}
+```
+
+## Load Data from Climate Stations
+
+### Air Temperature
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Load air temperature data
 file_path <- file.path(global_work_dir, "data", "2024_station_data", "Air Temperature C.xlsx")
 air_temp_data <- read_and_average_air_temperature(file_path)
@@ -204,7 +246,11 @@ air_temp_data <- air_temp_data %>% filter(Date >= common_start_date & Date <= co
 # Add the Lake Air Temperature from air_temp_data to combined_data
 combined_data <- combined_data %>%
   left_join(air_temp_data %>% select(Date, Lake_Air_Temperature_C), by = "Date")
+```
 
+### Solar Radiation
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define function to read, process, and average solar radiation data
 read_and_average_solar_radiation <- function(file_path) {
   # Read the data from the specified Excel file
@@ -233,7 +279,7 @@ read_and_average_solar_radiation <- function(file_path) {
   return(daily_solar_radiation_data)
 }
 
-# Example usage with solar radiation data
+# File path for solar radiation data
 file_path <- file.path(global_work_dir, "data", "2024_station_data", "Radiation.xlsx")
 
 # Assume combined_data is pre-loaded or defined
@@ -253,7 +299,11 @@ solar_radiation_data <- solar_radiation_data %>% filter(Date >= common_start_dat
 # Add the Solar Radiation data to combined_data
 combined_data <- combined_data %>%
   left_join(solar_radiation_data %>% select(Date, Solar_Radiation_W_m2), by = "Date")
+```
 
+### Wind Speed
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define function to read, process, and average wind speed data
 read_and_average_wind_speed <- function(file_path) {
   # Read the data from the specified Excel file
@@ -282,45 +332,7 @@ read_and_average_wind_speed <- function(file_path) {
   return(daily_wind_speed_data)
 }
 
-export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
-  
-  # Adjust height only if it's a combined plot and there are multiple rows
-  if (combined && num_rows > 1) {
-    # Add extra space for the x-axis labels on the first plot (top plot)
-    extra_space_for_labels <- 300  # Adjust this value as needed
-  } else {
-    extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
-    base_height = 400
-  }
-  
-  # Calculate the total height
-  height <- base_height * num_rows + extra_space_for_labels
-  
-  # Create the directory if it doesn't exist
-  dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
-  
-  # Construct the full file path
-  file_path <- file.path(save_dir, file_name)
-  
-  # Open a PNG device with calculated height
-  png(filename = file_path, width = width, height = height, res = res)
-  
-  # Check if the input is a single plot or a grid object
-  if (inherits(plot, "ggplot")) {
-    # For a single ggplot, use print
-    print(plot)
-  } else {
-    # For grid-arranged objects, use grid.draw
-    grid.draw(plot)
-  }
-  
-  # Close the device
-  dev.off()
-  
-  cat("Plot exported to:", file_path, "\n")
-}
-
-# Example usage with wind speed data
+# File path for wind speed data
 file_path <- file.path(global_work_dir, "data", "2024_station_data", "Wind Speed m_s.xlsx")
 
 # Assume combined_data is pre-loaded or defined
@@ -340,7 +352,13 @@ wind_speed_data <- wind_speed_data %>% filter(Date >= common_start_date & Date <
 # Add the Wind Speed data to combined_data
 combined_data <- combined_data %>%
   left_join(wind_speed_data %>% select(Date, Wind_Speed_m_s), by = "Date")
+```
 
+### Lake Temperature
+
+Different from other daily data from climate stations, we failed to obtain such data so monthly average from past research is used.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Monthly Lake Temperature Data
 # Create a data frame with month names and average temperatures from Anne's field measurements and online database
 MonthNames <- c("January", "February", "March", "April", "May", "June", 
@@ -367,17 +385,18 @@ combined_data$Lake_Temperature_C <- sapply(combined_data$Date, function(date) {
 
 # Display the first few rows of the updated combined_data
 head(combined_data[, c("Date", "Lake_Temperature_C")])
+```
 
+## Webb Method Conversion Calculation
+
+### Functions for calculating physical properties
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Function for saturated water vapor pressure
 # p_sat in kPa, T in °C
 saturated_water_vapor_pressure <- function(T) {
-  p_sat <- 0.611 * exp(17.27 * T / (T + 237.3))
   
-  # Antoine Equation (optional)
-  # A <- 8.07131
-  # B <- 1730.63
-  # C <- 233.426
-  # p_sat <- 10^((A - B / (T + C))) * 0.133322  # kPa
+  p_sat <- 0.611 * exp(17.27 * T / (T + 237.3))
   
   return(p_sat)
 }
@@ -385,13 +404,8 @@ saturated_water_vapor_pressure <- function(T) {
 # Function for water surface vapor pressure
 # p_sur in kPa, T in °C, RH as a fraction (e.g., 0.6 for 60% RH)
 water_surface_vapor_pressure <- function(T, RH) {
-  p_sur <- 0.611 * exp(17.27 * T / (T + 237.3)) * RH
   
-  # Antoine Equation (optional)
-  # A <- 8.07131
-  # B <- 1730.63
-  # C <- 233.426
-  # p_sur <- 10^((A - B / (T + C))) * 0.133322 * RH  # kPa
+  p_sur <- 0.611 * exp(17.27 * T / (T + 237.3)) * RH
   
   return(p_sur)
 }
@@ -421,7 +435,11 @@ salinity_vapor_pressure <- function(T, S) {
   p <- pw * 10^(a1 * S + a2 * S^2)
   return(p)
 }
+```
 
+### Conversion Calculation
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Calculate Saturation Vapor Pressure
 e_p_kPa <- saturated_water_vapor_pressure(combined_data$WaterTemp_C)
 e_p_0_kPa <- water_surface_vapor_pressure(combined_data$AirTemp_C, combined_data$RH_Percent / 100)
@@ -448,6 +466,7 @@ p <- ggplot(coefficient_data, aes(x = Date, y = Coefficient)) +
        x = "Date",
        y = "Conversion Coefficient") +
   theme_minimal()
+p
 
 export_plot_to_png(p, file_name = "Webb_Coefficient.png", num_rows = 1, combined = FALSE)
 
@@ -486,6 +505,7 @@ p <- ggplot(vapor_pressure_long, aes(x = Date, y = Value, color = VaporPressure)
   theme_minimal() +
   theme(legend.title = element_blank(),
         legend.position = "top")
+p
 
 export_plot_to_png(p, file_name = "Webb_Vapor_Pressure.png", num_rows = 1, combined = FALSE)
 
@@ -526,6 +546,7 @@ p <- ggplot(temperature_data, aes(x = Date, y = Temperature, color = Temperature
     legend.title = element_blank(),
     legend.position = "top"
   )
+p
 
 export_plot_to_png(p, file_name = "Webb_Temperature.png", num_rows = 1, combined = FALSE)
 
@@ -537,3 +558,4 @@ output_coeff <- data.frame(
 
 # Write the data frame to a CSV file
 write.csv(output_coeff, file.path(global_work_dir, "output", "eva_coeff_Webb_RStudio.csv"), row.names = FALSE)
+```

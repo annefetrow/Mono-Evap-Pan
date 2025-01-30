@@ -1,3 +1,23 @@
+---
+title: "Evaporation Rate and Climate Factors"
+author: "Yolanda Ming"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Overview
+
+This code process raw data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intialization
+
+Before running the code, I defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialization
 cat("\014")
 rm(list = ls())
@@ -13,13 +33,33 @@ library(gridExtra)
 library(grid)
 library(cowplot)
 
+# Set default line width globally for plots
+theme_set(theme_minimal(base_size = 14))
+```
+
+However, you will need to change the working directory to your own personal computer's directory when you download it. 
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define global working directory, please change it when download the code to your personal desktop
 global_work_dir = "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
-# Define a global base directory for saving plots, please change it when download the code to your personal desktop
-global_save_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
+global_save_dir <- file.path(global_work_dir, "plots")
+```
 
-# Function to parse datetime flexibly for mdy and ymd formats
+## Functions
+
+In order to simplify main code body, several functions are defined below
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 parse_datetime_flexible <- function(ori_datetime_str) {
+  
+  # parse_datetime_flexible flexibly parse datetime strings in either mdy_hms or ymd_hms format.
+  #
+  # Args:
+  #   ori_datetime_str: A character vector of datetime strings to parse.
+  #
+  # Returns:
+  #   A POSIXct vector of parsed datetime values. If parsing fails initially, attempts are made to correct and re-parse the strings.
+  
   # Attempt initial parsing with mdy_hms format
   parsed_datetime <- mdy_hms(ori_datetime_str, quiet = TRUE)
   
@@ -43,7 +83,9 @@ parse_datetime_flexible <- function(ori_datetime_str) {
   # Return only YY:MM:DD HH:MM format
   return(format(parsed_datetime, "%Y-%m-%d %H:%M"))
 }
+```
 
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 data_import <- function(file_name, data_column) {
   # data_import reads the data and timestamps from a CSV file.
   #
@@ -71,8 +113,21 @@ data_import <- function(file_name, data_column) {
   # Return the data and timestamps as a list
   return(list(value = data_table$Value, timestamp = data_table$Timestamp))
 }
+```
 
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 read_and_combine_csv <- function(folder_path, start_file, end_file, data_column) {
+  # read_and_combine_csv: Function to read and combine data from multiple CSV files within a specified range.
+  #
+  # Args:
+  #   folder_path: Path to the folder containing the CSV files.
+  #   start_file: Index of the first file to process (1-based index).
+  #   end_file: Index of the last file to process (1-based index).
+  #   data_column: Index of the column containing the data values to extract.
+  #
+  # Returns:
+  #   A data frame containing combined and cleaned data from the specified range of CSV files, with duplicates and NaN values removed.
+  
   # Get a list of all CSV files in the folder
   csv_files <- list.files(folder_path, pattern = "*.csv", full.names = TRUE)
   
@@ -104,9 +159,27 @@ read_and_combine_csv <- function(folder_path, start_file, end_file, data_column)
   
   return(unique_data)
 }
+```
 
-# Function to trim data to a common date range
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 trim_to_common_date_boundaries <- function(data1, time1, data2, time2) {
+  
+  # trim_to_common_date_boundaries: Function to trim two datasets to a common date range.
+  #
+  # Args:
+  #   data1: A vector containing the first dataset's values.
+  #   time1: A vector of datetime values corresponding to data1.
+  #   data2: A vector containing the second dataset's values.
+  #   time2: A vector of datetime values corresponding to data2.
+  #
+  # Returns:
+  #   A list containing:
+  #     - common_date_range: A vector with the start and end of the common date range.
+  #     - data1_trimmed: The trimmed values of data1 within the common date range.
+  #     - data2_trimmed: The trimmed values of data2 within the common date range.
+  #     - time1_trimmed: The trimmed datetime values of time1 within the common date range.
+  #     - time2_trimmed: The trimmed datetime values of time2 within the common date range.
+  
   # Find the maximum of the start dates and the minimum of the end dates
   common_start <- max(min(time1), min(time2))
   common_end <- min(max(time1), max(time2))
@@ -128,8 +201,22 @@ trim_to_common_date_boundaries <- function(data1, time1, data2, time2) {
        time1_trimmed = time1_trimmed,
        time2_trimmed = time2_trimmed)
 }
+```
 
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 eva_rate_cal <- function(h, date_time) {
+  
+  # eva_rate_cal: Function to calculate evaporation rate from a given set of heights and timestamps.
+  #
+  # Args:
+  #   h: A numeric vector containing height values (e.g., water levels).
+  #   date_time: A POSIXct vector containing corresponding datetime values.
+  #
+  # Returns:
+  #   A list containing:
+  #     - eva_rate: A vector of calculated evaporation rates for each valid window.
+  #     - eva_date_time: A vector of mean datetime values corresponding to each valid window.
+    
   eva_rate <- c()
   eva_date_time <- as.POSIXct(character())
   
@@ -148,8 +235,25 @@ eva_rate_cal <- function(h, date_time) {
   # Return eva_rate and eva_date_time as a list
   return(list(eva_rate = eva_rate, eva_date_time = eva_date_time))
 }
+```
 
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
+  
+  # export_plot_to_png: Function to export a plot or a grid of plots to a PNG file.
+  #
+  # Args:
+  #   plot: The plot to save, can be a single ggplot or a grid of plots.
+  #   file_name: The name of the output PNG file.
+  #   save_dir: The directory to save the plot in. Default is global_save_dir.
+  #   width: The width of the saved image in pixels. Default is 1200.
+  #   base_height: The base height of the plot in pixels (without extra space for labels). Default is 200.
+  #   res: The resolution of the saved image in dpi (dots per inch). Default is 150.
+  #   num_rows: The number of rows in a combined plot (if it's a grid of plots). Default is 1.
+  #   combined: A logical indicating whether the plot is a combined (grid) plot. Default is FALSE.
+  #
+  # Returns:
+  #   A PNG file containing the plot, saved to the specified location.
   
   # Adjust height only if it's a combined plot and there are multiple rows
   if (combined && num_rows > 1) {
@@ -186,13 +290,16 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
   
   cat("Plot exported to:", file_path, "\n")
 }
+```
 
-# Set default line width globally for plots
-theme_set(theme_minimal(base_size = 14))
+## Water Level
 
+First, we will load the water level data from the evaporation pan and precipitation data from precipitation gauge. We will first just plot the water level data over time to get an overview of how it changes with time.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Water Level
 # Path to the folder containing the CSV files for water level
-folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Pan Water Level")
+folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Pan Water Level")
 all_data <- read_and_combine_csv(folderPath, 5, 8, 3)
 
 # Precipitation
@@ -225,7 +332,13 @@ p
 
 # Export the plot to a png file
 export_plot_to_png(p, file_name = "Water_Level.png", num_rows = 1, combined = FALSE)
+```
 
+## Evaporation Rate
+
+Using the water level data, we use the center difference method to calculate the evaporation rate. Any positive evaporation rate will be zeroed since it's due to refill or precipitation.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Evaporation Rate Calculation Function
 eva_rate <- eva_rate_cal(all_data$value, all_data$timestamp)
 eva_rate <- list(
@@ -280,9 +393,17 @@ calculate_and_export_daily_avg <- function(values, date_times, output_path, file
 # Calculate daily evaporation rate and export
 output_folder <- file.path(global_work_dir, "output")
 calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output_folder, 'daily_average_evaporation_rates.csv', 'Evaporation_Rate_mm_hr')
+```
 
+## Climate Factors
+
+Here, we just simply importing all the climate factor data from all the gauges and plot them with time. Data are up to date with the latest download.
+
+### Water Temperature
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Water Temperature
-folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Water Temp")
+folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Water Temp")
 water_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
 p <- ggplot(water_temp_data, aes(x = timestamp, y = value)) +
@@ -294,9 +415,13 @@ p
 calculate_and_export_daily_avg(water_temp_data$value, water_temp_data$timestamp, output_folder, 'daily_average_water_temperature.csv', 'WaterTemp_C')
 
 export_plot_to_png(p, file_name = "Water_Temperature_over_Time.png", num_rows = 1, combined = FALSE)
+```
 
+### Air Temperature
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Air Temperature
-folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Air Temp and RH")
+folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Air Temp and RH")
 air_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
 p <- ggplot(air_temp_data, aes(x = timestamp, y = value)) +
@@ -308,9 +433,13 @@ p
 calculate_and_export_daily_avg(air_temp_data$value, air_temp_data$timestamp, output_folder, 'daily_average_air_temperature.csv', 'AirTemp_C')
 
 export_plot_to_png(p, file_name = "Air_Temperature_over_Time.png")
+```
 
+### Relative Humidity
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Relative Humidity
-folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Air Temp and RH")
+folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Air Temp and RH")
 rh_data <- read_and_combine_csv(folderPath, 1, 2, 4)
 
 p <- ggplot(rh_data, aes(x = timestamp, y = value)) +
@@ -322,7 +451,13 @@ p
 calculate_and_export_daily_avg(rh_data$value, rh_data$timestamp, output_folder, 'daily_average_RH.csv', 'RH_Percent')
 
 export_plot_to_png(p, file_name = "Relative_Humidity_Over_Time.png", num_rows = 1, combined = FALSE)
+```
 
+## Correlation Between Climate Factors
+
+We plot the evaporation rate against other climate factors to examine the relationship between them.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
   
   # Convert date-time columns to Date format if they are not already
@@ -402,9 +537,11 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
 
 # Plot Water Temperature, Air Temperature, and Relative Humidity
 plotByMonth(water_temp_data$timestamp, water_temp_data$value, air_temp_data$timestamp, air_temp_data$value, rh_data$timestamp, rh_data$value)
+```
 
+## How Climate Factors Affecting Evaporation
 
-
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   
   # Trim the data to the same date range using the helper function
@@ -514,3 +651,4 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
 }
 
 plotMonthlyEvapWaterAir(eva_rate, water_temp_data, air_temp_data)
+```
