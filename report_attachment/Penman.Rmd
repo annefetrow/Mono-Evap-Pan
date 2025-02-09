@@ -6,11 +6,11 @@ output: html_document
 ---
 # Overview
 
-tbd
+This code implements the Penman model for calculating Mono Lake evaporation rates, using climate data from our own gauges and various climate stations (such as air temperature, wind speed, and solar radiation). The conversion calculations are mostly based on meteorological and water properties. The script also integrates the raw pan evaporation rates for validation. The model aims to estimate the evaporation rate from the lake surface using the Penman-Monteith equation and provides visual comparisons of theoretical and measured evaporation rates.
 
 ## Initialization
 
-Before running the code, I defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
+The initialization section sets up the environment and loads necessary libraries - please make sure you have them all downloaded to your local environment. It also defines key global variables and constants used for the calculations throughout the script. Additionally, the working directory and data folder paths are configured to ensure the data is correctly loaded for processing.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialization
@@ -28,7 +28,7 @@ library(gridExtra)
 library(readxl)
 ```
 
-You will need to change the working directory to your own personal computer's directory when you download it. 
+Here you will also need to adjust the working directory and data paths to match your local directory.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 global_work_dir = "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
@@ -134,7 +134,7 @@ combined_data$Salinity_g_per_kg <- ifelse(
 
 ## Other Functions
 
-This is an assisting function that ensures two tables having the same size.
+These are all assisting functions for simplifying the main body of the code. You don't need to change anything here.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 match_table_sizes <- function(table1, table2) {
@@ -238,7 +238,11 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
 
 ## Load Climate Data from Climate Stations
 
+This section imports and averages climate data for various climate factors such as air temperature, solar radiation, and wind speed. Data is preprocessed to ensure consistency and alignment of time series data across multiple variables.
+
 ### Air Temperature
+
+The function `read_and_average_air_temperature` loads and processes air temperature data, averaging it by date.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Load air temperature data
@@ -262,6 +266,8 @@ combined_data <- combined_data %>%
 ```
 
 ### Solar Radiation
+
+The function `read_and_average_solar_radiation` handles solar radiation data, applying similar processing steps for consistency.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define function to read, process, and average solar radiation data
@@ -316,6 +322,8 @@ combined_data <- combined_data %>%
 
 ### Wind Speed
 
+Similarly, wind speed data is processed and averaged to align with the combined data.
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define function to read, process, and average wind speed data
 read_and_average_wind_speed <- function(file_path) {
@@ -369,7 +377,7 @@ combined_data <- combined_data %>%
 
 ## Conversion Calculation
 
-This part of the code calculates the conversion coefficient and converted the pan evaporation rate to estimate over lake evaporation.
+The core of this code script involves calculating the lake evaporation rate using the Penman model. The model utilizes various climate variables such as air temperature, solar radiation, and wind speed, as well as water properties like salinity.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Function to calculate E, evaporation rate of the lake
@@ -378,7 +386,11 @@ penman_calc <- function(delta, gamma, Rn, Ea) {
   E <- 1 / globalVars$LAMBDA * (delta * (Rn - G) + gamma * Ea) / ((delta + gamma) * globalVars$RHO_L)
   return(E)
 }
+```
 
+Additional sub-functions are used to calculate radiation, vapor pressure, and other required parameters for the Penman equation.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Function to calculate Rn
 Rn_calc <- function(Ta, RH, R1) {
   r <- 0.05

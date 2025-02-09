@@ -1,10 +1,22 @@
+---
+title: "Penman"
+author: "Yolanda Ming"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Overview
+
+This code implements the Penman model for calculating Mono Lake evaporation rates, using climate data from our own gauges and various climate stations (such as air temperature, wind speed, and solar radiation). The conversion calculations are mostly based on meteorological and water properties. The script also integrates the raw pan evaporation rates for validation. The model aims to estimate the evaporation rate from the lake surface using the Penman-Monteith equation and provides visual comparisons of theoretical and measured evaporation rates.
+
+## Initialization
+
+The initialization section sets up the environment and loads necessary libraries - please make sure you have them all downloaded to your local environment. It also defines key global variables and constants used for the calculations throughout the script. Additionally, the working directory and data folder paths are configured to ensure the data is correctly loaded for processing.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialization
 cat("\014")
 rm(list = ls())
 graphics.off()
-
-# Assume the climate station is measured at 4 m height
-h <- 4
 
 # Load necessary libraries
 library(dplyr)
@@ -14,17 +26,40 @@ library(ggplot2)
 library(vroom)
 library(gridExtra)
 library(readxl)
-library(tidyr)
+```
 
-# Define a global base directory, please change it when download the code to your personal desktop
-global_work_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
+Here you will also need to adjust the working directory and data paths to match your local directory.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+global_work_dir = "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
 global_save_dir <- file.path(global_work_dir, "plots")
+data_folder_path <- file.path(global_work_dir, "output")
+```
 
+Also, you can define the data range you want to examine in this code.
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define folder path and date range
-folder_path <- file.path(global_work_dir, "output")
 start_date <- as.Date("2024-07-05")
 end_date <- as.Date("2024-08-13")
+```
 
+Here are some global variables for further calculation.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Define global constants in an environment
+globalVars <- new.env()
+globalVars$RHO_W <- 1000       # Density of water in kg/m^3
+globalVars$RHO_L <- 1060       # Density of liquid in kg/m^3
+globalVars$SIGMA <- 5.67e-8    # Stefan-Boltzmann constant in W/(m^2 * K^4)
+globalVars$P <- 101325         # Pressure in Pa
+globalVars$Cp_w <- 3.7794e-3   # Specific heat of water in MJ/(kg * K)
+globalVars$Cp_a <- 1.005e-3    # Specific heat of air in MJ/(kg * K)
+globalVars$LAMBDA <- 2.45      # Latent heat in MJ/kg
+```
+
+We read the data that are processed in `Eva_Rate_and_Climate_Factors.Rmd` file, so to make sure they are all daily averages. All the data are combined to be in one single table.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 read_and_crop_data <- function(folder_path, start_date, end_date) {
   # This function reads all the .csv files in the specified folder,
   # crops them to the specified date range, and combines them into a single data frame.
@@ -71,8 +106,14 @@ read_and_crop_data <- function(folder_path, start_date, end_date) {
 }
 
 # Call the function to read and crop data
-combined_data <- read_and_crop_data(folder_path, start_date, end_date)
+combined_data <- read_and_crop_data(data_folder_path, start_date, end_date)
+```
 
+## Input Salinity
+
+Here, you can adjust the Mono Lake salinity based on your assumption or if you have in-field data. In this code, we simply assume salinity level is 81 g/kg for all time. However, you can change the values or define a table with changing salinity. You just need to make sure the salinity is successfully loaded to `combined_table`.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Assuming combined_data is a data frame with a Date column
 # Initialize the Salinity_g_per_kg column with zeros
 combined_data$Salinity_g_per_kg <- 0  # Set initial values to 0
@@ -83,14 +124,19 @@ mid_date <- as.Date("2024-08-15")
 
 # Set salinity values based on date conditions
 combined_data$Salinity_g_per_kg <- ifelse(
-  combined_data$Date < start_date, 75,  # Salinity for earlier dates
+  combined_data$Date < start_date, 81,  # Salinity for earlier dates
   ifelse(
     combined_data$Date < mid_date, 81,  # Salinity for middle dates
-    85  # Salinity for later dates
+    81  # Salinity for later dates
   )
 )
+```
 
+## Other Functions
 
+These are all assisting functions for simplifying the main body of the code. You don't need to change anything here.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 match_table_sizes <- function(table1, table2) {
   # Ensure that the Date columns are in Date format
   table1$Date <- as.Date(table1$Date)
@@ -119,8 +165,9 @@ match_table_sizes <- function(table1, table2) {
   # Return the cropped tables as a list
   return(list(cropped_table1 = cropped_table1, cropped_table2 = cropped_table2))
 }
+```
 
-
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 read_and_average_air_temperature <- function(file_path) {
   # Read the data from the specified Excel file
   data <- read_excel(file_path)
@@ -147,7 +194,9 @@ read_and_average_air_temperature <- function(file_path) {
   
   return(daily_air_temp_data)
 }
+```
 
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
   
   # Adjust height only if it's a combined plot and there are multiple rows
@@ -185,7 +234,17 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
   
   cat("Plot exported to:", file_path, "\n")
 }
+```
 
+## Load Climate Data from Climate Stations
+
+This section imports and averages climate data for various climate factors such as air temperature, solar radiation, and wind speed. Data is preprocessed to ensure consistency and alignment of time series data across multiple variables.
+
+### Air Temperature
+
+The function `read_and_average_air_temperature` loads and processes air temperature data, averaging it by date.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Load air temperature data
 file_path <- file.path(global_work_dir, "data", "2024_station_data", "Air Temperature C.xlsx")
 air_temp_data <- read_and_average_air_temperature(file_path)
@@ -204,7 +263,13 @@ air_temp_data <- air_temp_data %>% filter(Date >= common_start_date & Date <= co
 # Add the Lake Air Temperature from air_temp_data to combined_data
 combined_data <- combined_data %>%
   left_join(air_temp_data %>% select(Date, Lake_Air_Temperature_C), by = "Date")
+```
 
+### Solar Radiation
+
+The function `read_and_average_solar_radiation` handles solar radiation data, applying similar processing steps for consistency.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define function to read, process, and average solar radiation data
 read_and_average_solar_radiation <- function(file_path) {
   # Read the data from the specified Excel file
@@ -233,8 +298,8 @@ read_and_average_solar_radiation <- function(file_path) {
   return(daily_solar_radiation_data)
 }
 
-# Example usage with solar radiation data
-file_path <- file.path(global_work_dir, "data", "2024_station_data", "Radiation.xlsx")
+# File path for solar radiation data
+file_path <- file.path(global_work_dir, "data","2024_station_data","Radiation.xlsx")
 
 # Assume combined_data is pre-loaded or defined
 solar_radiation_data <- read_and_average_solar_radiation(file_path)
@@ -253,7 +318,13 @@ solar_radiation_data <- solar_radiation_data %>% filter(Date >= common_start_dat
 # Add the Solar Radiation data to combined_data
 combined_data <- combined_data %>%
   left_join(solar_radiation_data %>% select(Date, Solar_Radiation_W_m2), by = "Date")
+```
 
+### Wind Speed
+
+Similarly, wind speed data is processed and averaged to align with the combined data.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define function to read, process, and average wind speed data
 read_and_average_wind_speed <- function(file_path) {
   # Read the data from the specified Excel file
@@ -282,46 +353,8 @@ read_and_average_wind_speed <- function(file_path) {
   return(daily_wind_speed_data)
 }
 
-export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
-  
-  # Adjust height only if it's a combined plot and there are multiple rows
-  if (combined && num_rows > 1) {
-    # Add extra space for the x-axis labels on the first plot (top plot)
-    extra_space_for_labels <- 300  # Adjust this value as needed
-  } else {
-    extra_space_for_labels <- 0  # No extra space needed for non-combined or single-row plots
-    base_height = 400
-  }
-  
-  # Calculate the total height
-  height <- base_height * num_rows + extra_space_for_labels
-  
-  # Create the directory if it doesn't exist
-  dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
-  
-  # Construct the full file path
-  file_path <- file.path(save_dir, file_name)
-  
-  # Open a PNG device with calculated height
-  png(filename = file_path, width = width, height = height, res = res)
-  
-  # Check if the input is a single plot or a grid object
-  if (inherits(plot, "ggplot")) {
-    # For a single ggplot, use print
-    print(plot)
-  } else {
-    # For grid-arranged objects, use grid.draw
-    grid.draw(plot)
-  }
-  
-  # Close the device
-  dev.off()
-  
-  cat("Plot exported to:", file_path, "\n")
-}
-
-# Example usage with wind speed data
-file_path <- file.path(global_work_dir, "data", "2024_station_data", "Wind Speed m_s.xlsx")
+# File path for wind speed data
+file_path <- file.path(global_work_dir, "data","2024_station_data","Wind Speed m_s.xlsx")
 
 # Assume combined_data is pre-loaded or defined
 wind_speed_data <- read_and_average_wind_speed(file_path)
@@ -340,200 +373,171 @@ wind_speed_data <- wind_speed_data %>% filter(Date >= common_start_date & Date <
 # Add the Wind Speed data to combined_data
 combined_data <- combined_data %>%
   left_join(wind_speed_data %>% select(Date, Wind_Speed_m_s), by = "Date")
+```
 
-# Monthly Lake Temperature Data
-# Create a data frame with month names and average temperatures from Anne's field measurements and online database
-MonthNames <- c("January", "February", "March", "April", "May", "June", 
-                "July", "August", "September", "October", "November", "December")
+## Conversion Calculation
 
-# Average temperature should be updated when new data comes in
-AverageTemperatures_C <- (c(30, 32, 35, 45, 55, 60, 69.6, 71.8, 62.275, 52.75, 49.8, 35) - 32) * 5 / 9
+The core of this code script involves calculating the lake evaporation rate using the Penman model. The model utilizes various climate variables such as air temperature, solar radiation, and wind speed, as well as water properties like salinity.
 
-# Create a data frame for the monthly average temperatures
-monthly_avg_temp_df <- data.frame(MonthNames, AverageTemperatures_C)
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Function to calculate E, evaporation rate of the lake
+penman_calc <- function(delta, gamma, Rn, Ea) {
+  G <- 0 # MJ/m2d
+  E <- 1 / globalVars$LAMBDA * (delta * (Rn - G) + gamma * Ea) / ((delta + gamma) * globalVars$RHO_L)
+  return(E)
+}
+```
 
-# Assuming combined_data is already a data frame with a 'Date' column in Date format
-# Preallocate the lake temperature column in combined_data
-combined_data$Lake_Temperature_C <- rep(NA, nrow(combined_data))
+Additional sub-functions are used to calculate radiation, vapor pressure, and other required parameters for the Penman equation.
 
-# Loop through combined_data and assign lake temperature based on the month
-combined_data$Lake_Temperature_C <- sapply(combined_data$Date, function(date) {
-  # Get the month index for the current date in combined_data
-  current_month <- as.integer(format(date, "%m"))
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Function to calculate Rn
+Rn_calc <- function(Ta, RH, R1) {
+  r <- 0.05
+  a <- 0.4
+  b <- 0.274
+  n_N <- 0.8
+  ed_0_kPa <- water_surface_vapor_pressure(Ta, RH / 100)
+  ed_4_kPa <- vapor_pressure_height(ed_0_kPa, Ta + 273.15, 4)
   
-  # Assign the corresponding average lake temperature based on the month
-  monthly_avg_temp_df$AverageTemperatures_C[current_month]
-})
-
-# Display the first few rows of the updated combined_data
-head(combined_data[, c("Date", "Lake_Temperature_C")])
+  # Calculate RB
+  RB <- globalVars$SIGMA * (Ta + 273.15)^4 * (0.56 - 0.09 * sqrt(ed_4_kPa)) * (0.1 + 0.9 * n_N)
+  
+  # Calculate Rn
+  Rn <- R1 * (1 - r) - RB
+  return(Rn)
+}
 
 # Function for saturated water vapor pressure
-# p_sat in kPa, T in °C
 saturated_water_vapor_pressure <- function(T) {
   p_sat <- 0.611 * exp(17.27 * T / (T + 237.3))
-  
-  # Antoine Equation (optional)
-  # A <- 8.07131
-  # B <- 1730.63
-  # C <- 233.426
-  # p_sat <- 10^((A - B / (T + C))) * 0.133322  # kPa
-  
   return(p_sat)
 }
 
 # Function for water surface vapor pressure
-# p_sur in kPa, T in °C, RH as a fraction (e.g., 0.6 for 60% RH)
 water_surface_vapor_pressure <- function(T, RH) {
   p_sur <- 0.611 * exp(17.27 * T / (T + 237.3)) * RH
-  
-  # Antoine Equation (optional)
-  # A <- 8.07131
-  # B <- 1730.63
-  # C <- 233.426
-  # p_sur <- 10^((A - B / (T + C))) * 0.133322 * RH  # kPa
-  
   return(p_sur)
 }
 
-# Function for vapor pressure at a given height
-# p0 is initial pressure in kPa, T in °C, height in m
+# Function for vapor pressure at a certain height
 vapor_pressure_height <- function(p0, T, height) {
-  M <- 18.015e-3  # kg/mol
-  gravity <- 9.81  # m/s^2
-  R <- 8.314  # J/(mol*K)
-  
-  # Convert T from °C to K for calculation
-  T_K <- T + 273.15
-  
-  ph <- p0 * exp(-1 * (M * gravity * height) / (R * T_K))
+  M <- 18.015 * 10^(-3)  # kg/mol
+  gravity <- 9.81
+  R <- 8.314
+  ph <- p0 * exp(-1 * (M * gravity * height) / (R * T))
   return(ph)
 }
 
-# Function for vapor pressure with salinity effect
-# T in °C, S in g/kg (salinity)
+# Function for salinity-adjusted vapor pressure
 salinity_vapor_pressure <- function(T, S) {
   pw <- saturated_water_vapor_pressure(T)
-  
-  a1 <- -2.1609e-4
-  a2 <- -3.5015e-7
-  
+  a1 <- -2.1609 * 10^(-4)
+  a2 <- -3.5015 * 10^(-7)
   p <- pw * 10^(a1 * S + a2 * S^2)
   return(p)
 }
 
-# Calculate Saturation Vapor Pressure
-e_p_kPa <- saturated_water_vapor_pressure(combined_data$WaterTemp_C)
-e_p_0_kPa <- water_surface_vapor_pressure(combined_data$AirTemp_C, combined_data$RH_Percent / 100)
-e_p_4_kPa <- vapor_pressure_height(e_p_0_kPa, combined_data$AirTemp_C + 273.15, h)
+# Function to calculate delta
+delta_calc <- function(S, T) {
+  dT <- 0.1
+  delta <- (salinity_vapor_pressure(T + dT, S) - salinity_vapor_pressure(T - dT, S)) / (2 * dT)
+  return(delta)
+}
 
-e_l_kPa <- salinity_vapor_pressure(combined_data$Lake_Temperature_C, combined_data$Salinity_g_per_kg)
-e_l_0_kPa <- water_surface_vapor_pressure(combined_data$Lake_Air_Temperature_C, combined_data$RH_Percent / 100)
-e_l_4_kPa <- vapor_pressure_height(e_l_0_kPa, combined_data$Lake_Air_Temperature_C + 273.15, h)
+# Function for gamma calculation
+salinity_sigma_calc <- function() {
+  mu <- 0.622
+  gamma <- (globalVars$Cp_a * globalVars$P / 1000) / (mu * globalVars$LAMBDA)
+  return(gamma)
+}
 
-# Calculate Lake Evaporation
-E_lake <- ((e_l_kPa - e_l_4_kPa) / (e_p_kPa - e_p_4_kPa)) * combined_data$Evaporation_Rate_mm_hr
-coefficient <- ((e_l_kPa - e_l_4_kPa) / (e_p_kPa - e_p_4_kPa))
+# Calculate delta
+delta <- delta_calc(combined_data$Salinity_g_per_kg, combined_data$Lake_Air_Temperature_C)  # kPa/K
 
-# Create a data frame for ggplot
-coefficient_data <- data.frame(
-  Date = combined_data$Date,
-  Coefficient = coefficient
-)
+# Specific Heat
+gamma <- salinity_sigma_calc()  # kPa/K
 
-# Plot using ggplot
-p <- ggplot(coefficient_data, aes(x = Date, y = Coefficient)) +
-  geom_line(color = "blue") +
-  labs(title = "Conversion Coefficient Over Time",
-       x = "Date",
-       y = "Conversion Coefficient") +
-  theme_minimal()
+# Radiation calculation
+Rn <- Rn_calc(combined_data$Lake_Air_Temperature_C, combined_data$RH_Percent, combined_data$Solar_Radiation_W_m2)  # W/m^2
+```
 
-export_plot_to_png(p, file_name = "Webb_Coefficient.png", num_rows = 1, combined = FALSE)
+We used 2 methods to calculate the air drying power Ea: from theoretical estimate and from our own pan evaporation rate. 
 
-# Create a data frame for plotting
-vapor_pressure_data <- data.frame(
-  Date = combined_data$Date,  # Assuming 'Date' is in combined_data
-  e_p_4_kPa = e_p_4_kPa,
-  e_p_kPa = e_p_kPa,
-  e_l_kPa = e_l_kPa,
-  e_l_4_kPa = e_l_4_kPa
-)
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Check Ea with theoretical Ea
+Ea_theo <- 6.43 * (0.18 + 0.55 * wind_speed_data$Wind_Speed_m_s) * 
+  (saturated_water_vapor_pressure(combined_data$WaterTemp_C) - 
+     water_surface_vapor_pressure(combined_data$AirTemp_C, combined_data$RH_Percent / 100))
 
-# Pivot to long format for ggplot
-vapor_pressure_long <- vapor_pressure_data %>%
-  pivot_longer(cols = c(e_p_4_kPa, e_p_kPa, e_l_kPa, e_l_4_kPa), 
-               names_to = "VaporPressure", 
-               values_to = "Value")
+# Calculate En
+Ea_pan <- combined_data$Evaporation_Rate_mm_hr * globalVars$RHO_W * globalVars$LAMBDA * 24 / 1000  # MJ/m^2/day
+E_pan <- penman_calc(delta, gamma, Rn * 0.0864, Ea_pan) * 1000  # mm/day
+E_theo <- penman_calc(delta, gamma, Rn * 0.0864, Ea_theo) * 1000  # mm/day
 
-# Ensure VaporPressure column is a factor with consistent levels
-vapor_pressure_long$VaporPressure <- factor(
-  vapor_pressure_long$VaporPressure, 
-  levels = c("e_p_4_kPa", "e_p_kPa", "e_l_kPa", "e_l_4_kPa") # Matches scale_color_manual
-)
-
-# Create the plot
-p <- ggplot(vapor_pressure_long, aes(x = Date, y = Value, color = VaporPressure)) +
-  geom_line() +
-  labs(title = "Vapor Pressures Over Time",
-       x = "Date",
-       y = "Vapor Pressure (kPa)") +
-  scale_color_manual(values = c("e_p_4_kPa" = "blue", 
-                                "e_p_kPa" = "red", 
-                                "e_l_kPa" = "green", 
-                                "e_l_4_kPa" = "purple"),
-                     labels = c("Pan Air, 4m Above", "Pan Water", "Lake Water", "Lake Air, 4m Above")) +
+p <- ggplot(data = combined_data, aes(x = Date)) +
+  geom_line(aes(y = E_pan, color = "Lake, from Pan Eva")) +
+  geom_line(aes(y = E_theo, color = "Lake, from Theoretical Eva")) +
+  geom_line(aes(y = Evaporation_Rate_mm_hr * 24, color = "Pan Eva")) +
+  labs(y = "Eva Rate, mm/d", x = "Date") +
+  scale_color_manual(values = c("Lake, from Pan Eva" = "blue",
+                                "Lake, from Theoretical Eva" = "red",
+                                "Pan Eva" = "green")) +
   theme_minimal() +
   theme(legend.title = element_blank(),
-        legend.position = "top")
+        legend.position = "top",       # Move legend to the top
+        legend.direction = "horizontal")  # Arrange legend items horizontally
+p
 
-export_plot_to_png(p, file_name = "Webb_Vapor_Pressure.png", num_rows = 1, combined = FALSE)
+export_plot_to_png(p, file_name = "Penman_Evaporation_Rate.png", num_rows = 1, combined = FALSE)
+```
 
-# Pivot the temperature data to long format
-temperature_data <- combined_data %>%
-  select(Date, Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C) %>%
-  pivot_longer(cols = c(Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C), 
-               names_to = "TemperatureType", 
-               values_to = "Temperature")
-# Pivot the temperature data to long format
-temperature_data <- combined_data %>%
-  select(Date, Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C) %>%
-  pivot_longer(cols = c(Lake_Temperature_C, WaterTemp_C, AirTemp_C, Lake_Air_Temperature_C), 
-               names_to = "TemperatureType", 
-               values_to = "Temperature")
+This is an extra step that calculated the conversion coefficient from the converted evaporation rate.
 
-# Set the order for the legend using factor levels
-temperature_data$TemperatureType <- factor(
-  temperature_data$TemperatureType, 
-  levels = c("AirTemp_C", "WaterTemp_C", "Lake_Temperature_C", "Lake_Air_Temperature_C") # Desired order
-)
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Calculate Conversion Coefficients
+C_pan <- E_pan / (combined_data$Evaporation_Rate_mm_hr * 24)
+C_theo <- E_theo / (combined_data$Evaporation_Rate_mm_hr * 24)
 
-# Create the ggplot
-p <- ggplot(temperature_data, aes(x = Date, y = Temperature, color = TemperatureType)) +
-  geom_line() +
-  labs(title = "Temperature Over Time",
-       x = "Date",
-       y = "Temperature (°C)") +
-  scale_color_manual(
-    values = c("AirTemp_C" = "blue", 
-               "WaterTemp_C" = "red", 
-               "Lake_Temperature_C" = "green", 
-               "Lake_Air_Temperature_C" = "purple"),
-    labels = c("Pan Air, 4m Above", "Pan Water", "Lake Water", "Lake Air, 4m Above")
-  ) +
+# Add conversion coefficients to combined_data for plotting
+combined_data$C_pan <- C_pan
+combined_data$C_theo <- C_theo
+
+p <- ggplot(data = combined_data, aes(x = Date)) +
+  geom_line(aes(y = C_pan, color = "From Pan Eva")) +
+  geom_line(aes(y = C_theo, color = "From Theoretical Eva")) +
+  labs(y = "Conversion Coefficient", x = "Date") +
+  scale_color_manual(values = c("From Pan Eva" = "blue", "From Theoretical Eva" = "red")) +
   theme_minimal() +
-  theme(
-    legend.title = element_blank(),
-    legend.position = "top"
-  )
+  theme(legend.title = element_blank(),
+        legend.position = "top",       # Move legend to the top
+        legend.direction = "horizontal") +  # Arrange legend items horizontally
+  labs(color = "Evaporation Source")  # Adds legend label
+p
 
-export_plot_to_png(p, file_name = "Webb_Temperature.png", num_rows = 1, combined = FALSE)
+export_plot_to_png(p, file_name = "Penman_Coefficient.png", num_rows = 1, combined = FALSE)
+```
 
+## Data Ouput
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Create a data frame with calculated coefficient
 output_coeff <- data.frame(
-  Date = coefficient_data$Date,
-  Coeff = coefficient_data$Coefficient
+  Date = combined_data$Date,
+  Theoretical_Eva = C_theo,
+  Pan_Eva = C_pan
+)
+
+
+# Create a data frame with the calculated data
+output_table <- data.frame(
+  Date = combined_data$Date,
+  Lake_From_Pan_Eva_mm_d = E_pan,
+  Lake_From_Theoretical_Eva_mm_d = E_theo,
+  Pan_Eva_mm_d = combined_data$Evaporation_Rate_mm_hr * 24
 )
 
 # Write the data frame to a CSV file
-write.csv(output_coeff, file.path(global_work_dir, "output", "eva_coeff_Webb_RStudio.csv"), row.names = FALSE)
+write.csv(output_coeff, file.path(global_work_dir, "output","eva_coeff_Penman_RStudio.csv"), row.names = FALSE)
+write.csv(output_table, file.path(global_work_dir, "output","eva_estimate_Penman_RStudio.csv"), row.names = FALSE)
+```

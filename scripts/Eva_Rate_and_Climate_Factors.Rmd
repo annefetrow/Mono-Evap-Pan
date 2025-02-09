@@ -7,15 +7,11 @@ output: html_document
 
 ## Overview
 
-This code process raw data
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+This code contains an analysis of evaporation rates calculated from raw evaporation pan water data, in relation to various climate factors - water and air temperatures, and relative humidity. The goal is to explore how different climate conditions influence evaporation rates, using data analysis and visualization in R. You will also be able to tune the salinity based on your data or understanding.
 
 ## Intialization
 
-Before running the code, I defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
+Before running the code, we defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialization
@@ -37,17 +33,23 @@ library(cowplot)
 theme_set(theme_minimal(base_size = 14))
 ```
 
-However, you will need to change the working directory to your own personal computer's directory when you download it. 
+You will need to change the working directory to your own personal computer's directory when you download it. 
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define global working directory, please change it when download the code to your personal desktop
-global_work_dir = "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
+global_work_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
 global_save_dir <- file.path(global_work_dir, "plots")
 ```
 
 ## Functions
 
-In order to simplify main code body, several functions are defined below
+In order to simplify main code body, several functions are defined below. You don't need to change the settings for the functions.
+
+The function mainly includes:
+
+* Importing datasets using `readr` or `read.csv`.
+* Handling missing values using `na.omit` or `dplyr::filter`.
+* Converting date formats and extracting relevant time-based features.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 parse_datetime_flexible <- function(ori_datetime_str) {
@@ -294,12 +296,12 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
 
 ## Water Level
 
-First, we will load the water level data from the evaporation pan and precipitation data from precipitation gauge. We will first just plot the water level data over time to get an overview of how it changes with time.
+First, we will load the water level data from the evaporation pan and precipitation data from precipitation gauge. We first just plotted the water level data over time to get an overview of how it changes with time.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Water Level
 # Path to the folder containing the CSV files for water level
-folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Pan Water Level")
+folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Pan Water Level")
 all_data <- read_and_combine_csv(folderPath, 5, 8, 3)
 
 # Precipitation
@@ -397,13 +399,13 @@ calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output
 
 ## Climate Factors
 
-Here, we just simply importing all the climate factor data from all the gauges and plot them with time. Data are up to date with the latest download.
+Here, we just simply importing all the climate factor data from all the gauges and plot them against time. Data are up to date with the latest download. All climate data are stored in `Raw data - Evaporation Pan`.
 
 ### Water Temperature
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Water Temperature
-folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Water Temp")
+folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Water Temp")
 water_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
 p <- ggplot(water_temp_data, aes(x = timestamp, y = value)) +
@@ -421,7 +423,7 @@ export_plot_to_png(p, file_name = "Water_Temperature_over_Time.png", num_rows = 
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Air Temperature
-folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Air Temp and RH")
+folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Air Temp and RH")
 air_temp_data <- read_and_combine_csv(folderPath, 1, 2, 3)
 
 p <- ggplot(air_temp_data, aes(x = timestamp, y = value)) +
@@ -439,7 +441,7 @@ export_plot_to_png(p, file_name = "Air_Temperature_over_Time.png")
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Relative Humidity
-folderPath <- file.path(global_work_dir, "data", "Raw data – Evaporation Pan","Air Temp and RH")
+folderPath <- file.path(global_work_dir, "data", "Raw data - Evaporation Pan","Air Temp and RH")
 rh_data <- read_and_combine_csv(folderPath, 1, 2, 4)
 
 p <- ggplot(rh_data, aes(x = timestamp, y = value)) +
@@ -455,7 +457,7 @@ export_plot_to_png(p, file_name = "Relative_Humidity_Over_Time.png", num_rows = 
 
 ## Correlation Between Climate Factors
 
-We plot the evaporation rate against other climate factors to examine the relationship between them.
+We plotted the evaporation rate against other climate factors to examine the relationship between them.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
@@ -540,6 +542,8 @@ plotByMonth(water_temp_data$timestamp, water_temp_data$value, air_temp_data$time
 ```
 
 ## How Climate Factors Affecting Evaporation
+
+Finally, climate factors water and air temperature are plotted together with evaporation to examine the correlation.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {

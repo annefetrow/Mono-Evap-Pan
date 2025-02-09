@@ -7,15 +7,11 @@ output: html_document
 
 ## Overview
 
-This code process raw data
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+This code contains an analysis of evaporation rates calculated from raw evaporation pan water data, in relation to various climate factors - water and air temperatures, and relative humidity. The goal is to explore how different climate conditions influence evaporation rates, using data analysis and visualization in R. You will also be able to tune the salinity based on your data or understanding.
 
 ## Intialization
 
-Before running the code, I defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
+Before running the code, we defined some global settings and load necessary libraries. You don't need to change the settings but please make sure you have all the libraries downloaded to your computer.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialization
@@ -47,7 +43,13 @@ global_save_dir <- file.path(global_work_dir, "plots")
 
 ## Functions
 
-In order to simplify main code body, several functions are defined below
+In order to simplify main code body, several functions are defined below. You don't need to change the settings for the functions.
+
+The function mainly includes:
+
+* Importing datasets using `readr` or `read.csv`.
+* Handling missing values using `na.omit` or `dplyr::filter`.
+* Converting date formats and extracting relevant time-based features.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 parse_datetime_flexible <- function(ori_datetime_str) {
@@ -294,7 +296,7 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
 
 ## Water Level
 
-First, we will load the water level data from the evaporation pan and precipitation data from precipitation gauge. We will first just plot the water level data over time to get an overview of how it changes with time.
+First, we will load the water level data from the evaporation pan and precipitation data from precipitation gauge. We first just plotted the water level data over time to get an overview of how it changes with time.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Water Level
@@ -397,7 +399,7 @@ calculate_and_export_daily_avg(eva_rate$eva_rate, eva_rate$eva_date_time, output
 
 ## Climate Factors
 
-Here, we just simply importing all the climate factor data from all the gauges and plot them with time. Data are up to date with the latest download.
+Here, we just simply importing all the climate factor data from all the gauges and plot them against time. Data are up to date with the latest download. All climate data are stored in `Raw data - Evaporation Pan`.
 
 ### Water Temperature
 
@@ -455,7 +457,7 @@ export_plot_to_png(p, file_name = "Relative_Humidity_Over_Time.png", num_rows = 
 
 ## Correlation Between Climate Factors
 
-We plot the evaporation rate against other climate factors to examine the relationship between them.
+We plotted the evaporation rate against other climate factors to examine the relationship between them.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time, T_air_all, RH_all_date_time, RH_all) {
@@ -540,6 +542,8 @@ plotByMonth(water_temp_data$timestamp, water_temp_data$value, air_temp_data$time
 ```
 
 ## How Climate Factors Affecting Evaporation
+
+Finally, climate factors water and air temperature are plotted together with evaporation to examine the correlation.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {

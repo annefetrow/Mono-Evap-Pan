@@ -1,3 +1,17 @@
+---
+title: "L2S_Comparison"
+author: "Yolanda Ming"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Overview
+This code analyzes and visualizes monthly evaporation rates for Mono Lake using multiple estimation methods and model predictions. The analysis integrates observed pan evaporation data, theoretical evaporation calculations from the Penman method, and the Webb method, alongside L2S hydrological model outputs. The code outputs a PNG `l2s_comparison.png` to `output` folder.
+
+# Initialization
+
+Before running the code, We defined some global settings and load necessary libraries. You don't need to change the settings, but please make sure you have all the libraries downloaded to your computer. 
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Initialize
 cat("\014")
 rm(list = ls())
@@ -12,10 +26,22 @@ library(vroom)
 library(gridExtra)
 library(grid)
 library(cowplot)
+```
 
+You will need to change the working directory to your own personal computer's directory when you download it.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Define a global base directory, please change it when download the code to your personal desktop
-global_save_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/plots"
+global_work_dir <- "C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan"
+global_save_dir <- file.path(global_work_dir, "plots")
+```
 
+
+# Function for Image Output
+
+Here, we define a help function to shorten the main body of the code. You don't need to change anything for the code to run. However, there are some parameters that determine the output plot format and size, etc. Feel free to change that based on your liking.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, width = 1200, base_height = 200, res = 150, num_rows = 1, combined = FALSE) {
   
   # Adjust height only if it's a combined plot and there are multiple rows
@@ -53,9 +79,17 @@ export_plot_to_png <- function(plot, file_name, save_dir = global_save_dir, widt
   
   cat("Plot exported to:", file_path, "\n")
 }
+```
 
+# Load L2S Data
+
+The code below loads data from l2s model results (credit to UM SEAS HYDRO Lab's researcher Anna Gossard, Manish Venumuddula, Alexander VanDeWeghe1, Caleb Wegener, and
+professor Andrew D. Gronewold). The model predictions contain mean value, upper and lower boundaries.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Load the CSV file
-data <- read.csv('C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/data/l2s/Joker_L2SWBM_jSum_Formatted.csv')
+file_path <- file.path(global_work_dir, "data", "l2s", "Joker_L2SWBM_jSum_Formatted.csv")
+data <- read.csv(file_path)
 
 # Convert the 'Date' column to Date type
 data$Date <- as.Date(data$Date, format = "%Y-%m-%d")
@@ -85,10 +119,16 @@ l2s_monthly_avg$Date <- as.Date(paste(2000, l2s_monthly_avg$Month, 1, sep = "-")
 
 # View the resulting data frame
 print(l2s_monthly_avg)
+```
 
+# Load Converted Evaporation Estimate
 
+We also loaded pan evaporation data and evaporation estimates from both Webb and Penman methods.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Load the CSV file with stringsAsFactors = FALSE to avoid factor conversion
-data <- read.csv('C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_estimate_Penman_RStudio.csv', stringsAsFactors = FALSE)
+file_path <- file.path(global_work_dir, "output", "eva_estimate_Penman_RStudio.csv")
+data <- read.csv(file_path, stringsAsFactors = FALSE)
 
 # Check the first few rows of the Date column to ensure it's in the correct format
 head(data$Date)
@@ -126,7 +166,8 @@ print(monthly_avg)
 
 
 # Load the new CSV file
-data_webb <- read.csv('C:/Users/24468/Desktop/Research/SEAS-HYDRO/Mono Lake/Mono-Evap-Pan/output/eva_coeff_Webb_RStudio.csv', stringsAsFactors = FALSE)
+file_path <- file.path(global_work_dir, "output", "eva_coeff_Webb_RStudio.csv")
+data_webb <- read.csv(file_path, stringsAsFactors = FALSE)
 
 # Convert the 'Date' column to Date type
 data_webb$Date <- ymd(data_webb$Date)
@@ -153,10 +194,13 @@ monthly_avg <- left_join(monthly_avg, monthly_avg_webb, by = "YearMonth")
 
 # Add the new result as a column (monthly evaporation based on coefficients)
 monthly_avg$monthly_avg_lake_from_webb <- monthly_avg$monthly_avg_pan_eva * monthly_avg_webb$mean_Coeff
+```
 
-# View the resulting data frame
-print(monthly_avg)
+# Visualize Comparison Between Model and Evaporation Estimate
 
+We plotted the l2s model as line plot as they contains detailed daily model results. Evaporation estimate, along with original pan evaporation data, is plotted as monthly average using dots.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Start ggplot without specifying data initially
 p <- ggplot()
 
@@ -232,8 +276,8 @@ p <- p +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5),
-    legend.position = "none"  # Place the legend at the top
-  ) +
+    legend.position = "top"  # Change "none" to "top" or another position
+  )
   
   # Add grid lines
   theme(panel.grid.major = element_line(color = "grey80"),
@@ -243,3 +287,5 @@ p <- p +
 print(p)
 
 export_plot_to_png(p, file_name = "l2s_comparison.png", num_rows = 1, combined = FALSE)
+```
+
