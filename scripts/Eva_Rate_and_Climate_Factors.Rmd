@@ -225,15 +225,22 @@ eva_rate_cal <- function(h, date_time) {
   for (i in 1:(length(h) - 2)) {
     window <- h[i:(i + 2)]
     duration <- as.numeric(difftime(date_time[i + 2], date_time[i], units = "hours"))
-    
-    if (is.unsorted(-window) == FALSE) {  # Check if window is sorted in descending order
-      rate <- (window[1] - window[3]) / duration
-      eva_rate <- c(eva_rate, rate)
-      mean_timestamp <- mean(date_time[i:(i + 2)])
-      eva_date_time <- c(eva_date_time, mean_timestamp)  # Mean timestamp for the window
-    }
+    rate <- (window[1] - window[3]) / duration
+    eva_rate <- c(eva_rate, rate)
+    mean_timestamp <- mean(date_time[i:(i + 2)])
+    eva_date_time <- c(eva_date_time, mean_timestamp)  # Mean timestamp for the window
   }
-  
+    
+  #   if (is.unsorted(-window) == FALSE) {  # Check if window is sorted in descending order
+  #     rate <- (window[1] - window[3]) / duration
+  #     eva_rate <- c(eva_rate, rate)
+  #     mean_timestamp <- mean(date_time[i:(i + 2)])
+  #     eva_date_time <- c(eva_date_time, mean_timestamp)  # Mean timestamp for the window
+  #   }
+  # }
+    
+    
+    
   # Return eva_rate and eva_date_time as a list
   return(list(eva_rate = eva_rate, eva_date_time = eva_date_time))
 }
@@ -328,7 +335,7 @@ precipitation_data <- precipitation_data %>%
 # Plot water level over time
 p <- ggplot(all_data, aes(x = timestamp, y = value)) +
   geom_line(color = 'blue') +
-  labs(x = 'Date and Time', y = 'Water Level (mm)', title = 'Water Level over Time') +
+  labs(x = 'Date', y = 'Water Level (mm)', title = 'Water Level over Time') +
   theme_minimal()
 p
 
@@ -478,6 +485,14 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
   # Define color mapping for the variables
   color_mapping <- c("Water Temp" = "red", "Air Temp" = "green", "RH" = "black")
   
+  # Temperature axis limits
+  temp_min <- floor(min(c(T_water_all, T_air_all), na.rm = TRUE))
+  temp_max <- ceiling(max(c(T_water_all, T_air_all), na.rm = TRUE))
+  
+  # RH original scale
+  rh_min_orig <- 0
+  rh_max_orig <- 100
+  
   # Loop through each month (or each iteration in your data)
   for (i in 1:nrow(uniqueMonths)) {
     
@@ -485,40 +500,56 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
     currentMonth <- uniqueMonths$month[i]
     currentYear <- uniqueMonths$year[i]
     
+    # Get start and end of the current month
+    month_start <- as.POSIXct(paste(currentYear, currentMonth, "01", sep = "-"))
+    month_end <- as.POSIXct(paste(currentYear, currentMonth, days_in_month(month_start), sep = "-")) + 
+    hours(23) + minutes(59) + seconds(59)
+    
     # Filter data for the current month and year
     idxWater <- which(format(T_water_all_date, "%Y-%m") == paste(currentYear, currentMonth, sep = "-"))
     idxAir <- which(format(T_air_all_date, "%Y-%m") == paste(currentYear, currentMonth, sep = "-"))
     idxRH <- which(format(RH_all_date, "%Y-%m") == paste(currentYear, currentMonth, sep = "-"))
     
+    # Rescale RH to match temp scale for plotting
+  RH_scaled <- scales::rescale(RH_all[idxRH], to = c(temp_min, temp_max))
+    
     # Create a data frame for plotting
-    plot_data <- data.frame(
-      Date_time = c(T_water_all_date_time[idxWater], T_air_all_date_time[idxAir], RH_all_date_time[idxRH]),
-      Value = c(T_water_all[idxWater], T_air_all[idxAir], RH_all[idxRH]),
-      Variable = factor(
-        rep(c("Water Temp", "Air Temp", "RH"),
-            times = c(length(idxWater), length(idxAir), length(idxRH)))
-      )
-    )
+  plot_data <- data.frame(
+  Date_time = c(T_water_all_date_time[idxWater], T_air_all_date_time[idxAir], RH_all_date_time[idxRH]),
+  Value = c(T_water_all[idxWater], T_air_all[idxAir], RH_scaled),  # scaled RH
+  Variable = factor(
+    rep(c("Water Temp", "Air Temp", "RH"),
+        times = c(length(idxWater), length(idxAir), length(idxRH)))
+  )
+)
     
     # Make sure the format is correct for Date_time
     plot_data$Date_time <- as.POSIXct(plot_data$Date_time, format = "%Y-%m-%d %H:%M:%S")
     
     # Create the individual plot
-    p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable)) +
-      geom_line() +
-      scale_y_continuous(
-        name = "Temp (°C)",
-        sec.axis = sec_axis(~ ., name = "RH (%)")
-      ) +
-      labs(title = paste("Month:", currentYear, "-", currentMonth)) +
-      scale_color_manual(values = color_mapping) +  # Set manual colors
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5),
-        legend.position = "none",  # Hide the legend for individual plots
-        axis.title.x = element_blank()
-      )
-    
+p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable)) +
+  geom_line() +
+  scale_y_continuous(
+    name = "T (C)",
+    limits = c(temp_min, temp_max),
+    sec.axis = sec_axis(
+      trans = ~ scales::rescale(., from = c(temp_min, temp_max), to = c(rh_min_orig, rh_max_orig)),
+      name = "RH (%)",
+      breaks = c(0, 50, 100)
+    )
+  ) +
+  scale_color_manual(values = color_mapping) +
+  scale_x_datetime(
+        limits = c(month_start, month_end),
+        date_breaks = "8 days",  # Consistent break interval
+        date_labels = "%b %d"  # Date label format
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank()
+  )
+
     # Add the plot to the list of plots
     plots[[i]] <- p
   }
@@ -564,6 +595,7 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   # Extract unique months in the common date range
   unique_months <- unique(month(trimmed_eva_time))
   num_months <- length(unique_months)
+  
   
   # Get unique months and years from the datetime arrays
   months <- format(as.Date(trimmed_eva_time), "%m")
@@ -620,7 +652,7 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
       # Customize the y-axis labels and secondary axis for Water Temp and Air Temp
       scale_y_continuous(
         name = "Eva Rate(mm/hr)",
-        sec.axis = sec_axis(~ ., name = "Temp(°C)")
+        sec.axis = sec_axis(~ ., name = "T (°C)")
       ) +
       # Set title and x-axis label
       labs(title = paste("Month:", currentYear, "-", unique_months[i]),
