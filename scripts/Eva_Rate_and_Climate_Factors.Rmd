@@ -545,6 +545,7 @@ linetype_mapping <- c("Water Temp" = "dashed", "Air Temp" = "dashed", "RH" = "so
     # Create the individual plot
 p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable, linetype = Variable)) +
   geom_line() +
+  scale_linetype_manual(values = linetype_mapping) +
   scale_y_continuous(
     name = "T (C)",
     limits = c(temp_min, temp_max),
