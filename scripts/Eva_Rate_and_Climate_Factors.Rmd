@@ -28,6 +28,7 @@ library(vroom)
 library(gridExtra)
 library(grid)
 library(cowplot)
+library(scales)
 
 # Set default line width globally for plots
 theme_set(theme_minimal(base_size = 14))
@@ -226,9 +227,17 @@ eva_rate_cal <- function(h, date_time) {
     window <- h[i:(i + 2)]
     duration <- as.numeric(difftime(date_time[i + 2], date_time[i], units = "hours"))
     rate <- (window[1] - window[3]) / duration
+    
+    # Set rate to zero if the absolute value is greater than 10
+    if (abs(rate) > 3) {
+      rate <- 0
+    }
+    
     eva_rate <- c(eva_rate, rate)
     mean_timestamp <- mean(date_time[i:(i + 2)])
     eva_date_time <- c(eva_date_time, mean_timestamp)  # Mean timestamp for the window
+    
+    
   }
     
   #   if (is.unsorted(-window) == FALSE) {  # Check if window is sorted in descending order
@@ -239,8 +248,7 @@ eva_rate_cal <- function(h, date_time) {
   #   }
   # }
     
-    
-    
+  
   # Return eva_rate and eva_date_time as a list
   return(list(eva_rate = eva_rate, eva_date_time = eva_date_time))
 }
@@ -503,6 +511,11 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
     # Get start and end of the current month
     month_start <- as.POSIXct(paste(currentYear, currentMonth, "01", sep = "-"))
     month_end <- as.POSIXct(paste(currentYear, currentMonth, days_in_month(month_start), sep = "-")) + 
+        hours(23) + minutes(59) + seconds(59)
+    
+    # Get start and end of the current month
+    month_start <- as.POSIXct(paste(currentYear, currentMonth, "01", sep = "-"))
+    month_end <- as.POSIXct(paste(currentYear, currentMonth, days_in_month(month_start), sep = "-")) + 
     hours(23) + minutes(59) + seconds(59)
     
     # Filter data for the current month and year
@@ -526,8 +539,11 @@ plotByMonth <- function(T_water_all_date_time, T_water_all, T_air_all_date_time,
     # Make sure the format is correct for Date_time
     plot_data$Date_time <- as.POSIXct(plot_data$Date_time, format = "%Y-%m-%d %H:%M:%S")
     
+    # Define a new linetype mapping for each variable
+linetype_mapping <- c("Water Temp" = "dashed", "Air Temp" = "dashed", "RH" = "solid")
+    
     # Create the individual plot
-p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable)) +
+p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable, linetype = Variable)) +
   geom_line() +
   scale_y_continuous(
     name = "T (C)",
@@ -535,19 +551,20 @@ p <- ggplot(plot_data, aes(x = Date_time, y = Value, color = Variable)) +
     sec.axis = sec_axis(
       trans = ~ scales::rescale(., from = c(temp_min, temp_max), to = c(rh_min_orig, rh_max_orig)),
       name = "RH (%)",
-      breaks = c(0, 50, 100)
     )
   ) +
   scale_color_manual(values = color_mapping) +
   scale_x_datetime(
         limits = c(month_start, month_end),
-        date_breaks = "8 days",  # Consistent break interval
+        date_breaks = "5 days",  # Consistent break interval
         date_labels = "%b %d"  # Date label format
   ) +
   theme_minimal() +
   theme(
-    legend.position = "none",
-    axis.title.x = element_blank()
+    plot.title = element_text(hjust = 0.5, size = 12),  # Center the title and set font size
+    legend.position = "none",  # Hide the legend
+    axis.text.x = element_text(angle = 0, hjust = 1, size = 8),  # Set font size for x-axis text
+    axis.title.x = element_blank()  # Remove x-axis title
   )
 
     # Add the plot to the list of plots
@@ -596,11 +613,18 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
   unique_months <- unique(month(trimmed_eva_time))
   num_months <- length(unique_months)
   
-  
   # Get unique months and years from the datetime arrays
   months <- format(as.Date(trimmed_eva_time), "%m")
   years <- format(as.Date(trimmed_eva_time), "%Y")
   uniqueMonths <- unique(data.frame(year = years, month = months))
+  
+  # Calculate overall min and max for temperature and evaporation for uniform y-axis across plots
+  all_temps <- c(trimmed_temp, trimmed_T_air)
+  min_temp <- floor(min(all_temps, na.rm = TRUE))
+  max_temp <- ceiling(max(all_temps, na.rm = TRUE))
+  
+  min_evap <- floor(min(trimmed_eva_rate, na.rm = TRUE))
+  max_evap <- ceiling(max(trimmed_eva_rate, na.rm = TRUE))
   
   # List to store ggplot objects for each subplot
   plots <- vector("list", num_months)
@@ -623,50 +647,63 @@ plotMonthlyEvapWaterAir <- function(eva_rate, water_temp_data, air_temp_data) {
       temp_time = trimmed_temp_time[temp_month_idx],
       temp_value = trimmed_temp[temp_month_idx]
     )
+    temp_data$temp_value_scaled <- rescale(temp_data$temp_value, to = c(min_evap, max_evap)) # Scale for plotting
+    
     
     air_month_idx <- month(trimmed_T_air_time) == unique_months[i]
     air_data <- data.frame(
       air_time = trimmed_T_air_time[air_month_idx],
       air_value = trimmed_T_air[air_month_idx]
     )
+    air_data$air_value_scaled <- rescale(air_data$air_value, to = c(min_evap, max_evap)) # Scale for plotting
     
     # Convert Date_time to POSIXct format for month_data, temp_data, and air_data
     month_data$eva_time <- as.POSIXct(month_data$eva_time, format = "%Y-%m-%d %H:%M:%S")
     temp_data$temp_time <- as.POSIXct(temp_data$temp_time, format = "%Y-%m-%d %H:%M:%S")
     air_data$air_time <- as.POSIXct(air_data$air_time, format = "%Y-%m-%d %H:%M:%S")
     
+    # Define x-axis date range for uniformity across monthly plots
+    month_start <- as.POSIXct(paste(currentYear, currentMonth, "01", sep = "-"))
+    month_end <- as.POSIXct(paste(currentYear, currentMonth, days_in_month(month_start), sep = "-")) + 
+        hours(23) + minutes(59) + seconds(59)
+    
     # Define the color mapping for the legend
     color_mapping <- c("Water Temp" = "red", "Air Temp" = "green")
     
-    # Define the x-axis title element based on the plot index
-    x_axis_title <- if (i == num_months) element_text() else element_blank()
     
     # Plot for the current month
     p <- ggplot() +
       # Bar plot for Evaporation Rate
       geom_bar(data = month_data, aes(x = eva_time, y = eva_rate, fill = "Evaporation Rate"), stat = "identity", alpha = 0.6) +
       # Line plot for Water Temperature (dashed)
-      geom_line(data = temp_data, aes(x = temp_time, y = temp_value, color = "Water Temp"), linetype = "dashed") +
+      geom_line(data = temp_data, aes(x = temp_time, y = temp_value_scaled, color = "Water Temp"), linetype = "dashed") +
       # Line plot for Air Temperature (dashed)
-      geom_line(data = air_data, aes(x = air_time, y = air_value, color = "Air Temp"), linetype = "dashed") +
-      # Customize the y-axis labels and secondary axis for Water Temp and Air Temp
+      geom_line(data = air_data, aes(x = air_time, y = air_value_scaled, color = "Air Temp"), linetype = "dashed") +
+      # Independent y-axis scales for evaporation and temperatures
       scale_y_continuous(
-        name = "Eva Rate(mm/hr)",
-        sec.axis = sec_axis(~ ., name = "T (°C)")
+        name = "E (mm/hr)",
+        limits = c(min_evap, max_evap),
+        sec.axis = sec_axis(
+          trans = ~ rescale(., from = c(min_evap, max_evap), to = c(min_temp, max_temp)),
+          name = "T (C)"
+        )
       ) +
-      # Set title and x-axis label
-      labs(title = paste("Month:", currentYear, "-", unique_months[i]),
-           x = "Date") +
+      # Set x-axis limits and breaks
+      scale_x_datetime(
+        limits = c(month_start, month_end),
+        date_breaks = "5 days",
+        date_labels = "%b %d"
+      ) +
       # Apply color mappings to the legend
       scale_color_manual(values = color_mapping) +
       scale_fill_manual(values = c("Evaporation Rate" = "blue")) +  # Fill color for Evaporation Rate bar
       # Apply minimal theme with customized axis labels and title
       theme_minimal() +
       theme(
-        plot.title = element_text(hjust = 0.5),
-        legend.position = "none",  # Hide the legend for individual plots
-        axis.text.x = element_text(angle = 0, hjust = 1),  # Rotate x-axis labels for better readability
-        axis.title.x = element_blank()  # Use the conditionally set x-axis title
+        plot.title = element_text(hjust = 0.5, size = 12),  # Center the title and set font size
+        legend.position = "none",  # Hide the legend
+        axis.text.x = element_text(angle = 0, hjust = 1, size = 8),  # Set font size for x-axis text
+        axis.title.x = element_blank()  # Remove x-axis title
       )
     
     # Store the plot in the list
