@@ -4,6 +4,8 @@
 
 This directory should holds all of our raw data files, no matter the format (e.g. Excel, CSV, image data, etc.). Yolanda currently puts them all under the data folder but u feel free to use subfolders to structure your data further if you have a lot of differeny kinds. All data files should be treated as **read only**.
 
+Link to the data uploaded: https://drive.google.com/drive/folders/1xlh3-rdhs1PhuJu4rxLKHyPeRMTOjEsy?usp=sharing. 
+
 If you want to prevent any particular data file or data subfolder from being automatically added to GitHub, simply list their names in the `.gitignore` file that is in this directory.
 
 The data files included are as follows:
